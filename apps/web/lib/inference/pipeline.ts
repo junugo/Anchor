@@ -40,6 +40,18 @@ export function resetPipelineState(): void {
   _runCount = 0
 }
 
+// 测试专用：禁用管线执行（runPipelineGuarded 直接返回）。
+// 背景：ingest / handlers 的立即触发是 fire-and-forget 动态导入，管线 + 决策引擎
+// 链条多分支异步，测试无法在关库前确定性排空；注册/记录类用例与本文件无关的
+// 尾巴会落在已关闭的测试库上，被 node:test 归因为异步活动错误。
+let _disabledForTest = false
+export function disablePipelineForTest(): void {
+  _disabledForTest = true
+}
+export function enablePipelineForTest(): void {
+  _disabledForTest = false
+}
+
 /** 测试专用：返回 runPipeline 自上次 resetPipelineState 以来的实际执行次数 */
 export function getPipelineRunCount(): number {
   return _runCount
@@ -338,6 +350,7 @@ export async function runPipeline(db: Db, opts: PipelineOptions): Promise<Infere
 
 // 防重叠包装（供 server.ts tick 调用）
 export async function runPipelineGuarded(db: Db, opts: PipelineOptions): Promise<void> {
+  if (_disabledForTest) return
   if (_running) {
     // full 请求不静默丢弃：标记后由当前运行补跑
     if (opts.mode === 'full') _pendingFull = true

@@ -16,7 +16,9 @@ function tempDb(name: string) {
 }
 
 function unixAtLocalTime(hour: number, minute: number): number {
-  return Math.floor(new Date(2026, 5, 11, hour, minute, 0).getTime() / 1000)
+  // 与实现同基准（用户时区，默认 Asia/Shanghai）解释 wall time；
+  // 不能用 new Date(y,m,d)：那走系统本地时区，CI（UTC）下会偏 8 小时
+  return userZonedTimeToUtc('2026-06-11', hour * 60 + minute)
 }
 
 function daysAgo(n: number): string {

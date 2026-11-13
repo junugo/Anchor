@@ -6,7 +6,12 @@ import test from 'node:test'
 import { eq } from 'drizzle-orm'
 import { behaviorLogs, closeDb, createDb, processClassifications, userLivingContext } from '@anchor/db'
 import { applyIngestContext, ingestBehavior } from './ingest'
+import { disablePipelineForTest } from './pipeline'
 import { recordActionResponse, recordInterventionResult } from '../ws/handlers'
+
+// 本文件只测行为写入与进程注册，不测推断：ingest / handlers 的立即触发是
+// fire-and-forget 动态导入，管线尾巴无法在关库前确定性排空，直接禁用管线
+disablePipelineForTest()
 
 function tempDbPath(name: string): { dir: string; dbPath: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `anchor-${name}-`))
@@ -91,6 +96,32 @@ test('recordInterventionResult uses provided source instead of default', () => {
   }
 })
 
+// 分类是异步 fire-and-forget（动态 import 分类模块 + 无 API key 时立即 fallback）；
+// CI 上冷导入可能超过固定 sleep，轮询直至结算（行出现且 source 不再是 pending）。
+// 宽限 500ms：ingest 并行的 dev:signal 广播 / maybeImmediatePipeline 冷导入尾巴
+// 会在结算前后落地，不能让测试在它们碰 DB 前关闭连接
+async function waitClassificationSettled(
+  db: ReturnType<typeof createDb>,
+  name: string,
+  timeoutMs = 10000,
+): Promise<{ classification_source: string } | undefined> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const row = db.select().from(processClassifications)
+      .where(eq(processClassifications.process_name, name)).get()
+    // 注意：行尚未插入（undefined）不算结算——插入前链路还要冷导入 ws/server
+    if (row && row.classification_source !== 'pending') {
+      await new Promise(r => setTimeout(r, 500))
+      return row
+    }
+    if (Date.now() > deadline) {
+      return db.select().from(processClassifications)
+        .where(eq(processClassifications.process_name, name)).get()
+    }
+    await new Promise(r => setTimeout(r, 50))
+  }
+}
+
 test('ingestBehavior auto-registers desktop window_focus process into process_classifications', async () => {
   const { dir, dbPath } = tempDbPath('ingest-proc-register')
   const db = createDb(dbPath)
@@ -101,11 +132,8 @@ test('ingestBehavior auto-registers desktop window_focus process into process_cl
       payload: { process: 'Code.exe', window_title: 'main.ts', duration_ms: 5000, is_idle: false },
       logged_at: 100,
     })
-    // 分类是异步 fire-and-forget（动态 import + 无 API key 时立即 fallback），等待微任务/宏任务结算
-    await new Promise(r => setTimeout(r, 200))
 
-    const row = db.select().from(processClassifications)
-      .where(eq(processClassifications.process_name, 'code.exe')).get()
+    const row = await waitClassificationSettled(db, 'code.exe')
     assert.ok(row, 'expected code.exe to be registered')
     assert.equal(row.classification_source, 'fallback')
   } finally {
@@ -124,11 +152,8 @@ test('ingestBehavior auto-registers desktop window_active process into process_c
       payload: { process: 'Code.exe', window_title: 'main.ts' },
       logged_at: 100,
     })
-    // 分类是异步 fire-and-forget（动态 import + 无 API key 时立即 fallback），等待微任务/宏任务结算
-    await new Promise(r => setTimeout(r, 200))
 
-    const row = db.select().from(processClassifications)
-      .where(eq(processClassifications.process_name, 'code.exe')).get()
+    const row = await waitClassificationSettled(db, 'code.exe')
     assert.ok(row, 'expected code.exe to be registered')
     assert.equal(row.classification_source, 'fallback')
   } finally {

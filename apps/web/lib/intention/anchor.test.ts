@@ -168,6 +168,21 @@ function installFakeClient(): { client: FakeWsClient; uninstall: () => void } {
   }
 }
 
+// 协调器 broadcast 经动态 import('./server')，CI 冷导入可能数秒；轮询直至目标消息出现
+async function untilMessage(
+  sent: Array<Record<string, unknown>>,
+  pred: (m: Record<string, unknown>) => boolean,
+  timeoutMs = 10000,
+): Promise<Record<string, unknown> | undefined> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const hit = sent.find(pred)
+    if (hit) return hit
+    if (Date.now() > deadline) return undefined
+    await new Promise(r => setTimeout(r, 25))
+  }
+}
+
 test('capture-response skip broadcasts dismiss with prompt_id, first response wins', async () => {
   const { dir, dbPath } = tempDbPath('intent-coord-skip')
   let db: ReturnType<typeof createDb> | undefined
@@ -179,16 +194,14 @@ test('capture-response skip broadcasts dismiss with prompt_id, first response wi
     client.sent.length = 0
 
     await anchor.triggerIntentCapture(db)
-    await new Promise(r => setTimeout(r, 0)) // 协调器广播经动态 import，让出一拍
-    const capture = client.sent.find(m => m['type'] === 'intent:capture')
+    const capture = await untilMessage(client.sent, m => m['type'] === 'intent:capture')
     assert.ok(capture, '应广播 intent:capture')
     assert.equal(typeof capture['prompt_id'], 'string')
     assert.equal(capture['timeoutSeconds'], 60)
     const promptId = capture['prompt_id'] as string
 
     anchor.handleIntentCaptureResponse({ prompt_id: promptId, action: 'skip' })
-    await new Promise(r => setTimeout(r, 0)) // resolve 内动态 import 是异步的
-    const dismiss = client.sent.find(m => m['type'] === 'intent:dismiss')
+    const dismiss = await untilMessage(client.sent, m => m['type'] === 'intent:dismiss')
     assert.ok(dismiss, 'skip 后应广播 intent:dismiss')
     assert.equal(dismiss['prompt_id'], promptId)
     assert.equal(dismiss['reason'], 'skipped')
@@ -238,13 +251,11 @@ test('notifyIntentSubmitted with matching prompt_id broadcasts dismiss answered'
     client.sent.length = 0
 
     await anchor.triggerIntentCapture(db)
-    await new Promise(r => setTimeout(r, 0))
-    const capture = client.sent.find(m => m['type'] === 'intent:capture')
+    const capture = await untilMessage(client.sent, m => m['type'] === 'intent:capture')
     const promptId = capture!['prompt_id'] as string
 
     anchor.notifyIntentSubmitted(promptId)
-    await new Promise(r => setTimeout(r, 0))
-    const dismiss = client.sent.find(m => m['type'] === 'intent:dismiss')
+    const dismiss = await untilMessage(client.sent, m => m['type'] === 'intent:dismiss')
     assert.ok(dismiss)
     assert.equal(dismiss['prompt_id'], promptId)
     assert.equal(dismiss['reason'], 'answered')

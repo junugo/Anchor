@@ -6,6 +6,7 @@ import test from 'node:test'
 import { closeDb, createDb, behaviorLogs, interventionLogs, stateSegments, sunsetConfig, sunsetSessions } from '@anchor/db'
 import type { UserState } from '@anchor/types'
 import { dayBounds, getTimelineDay, getTimelineDays } from './queries'
+import { userZonedTimeToUtc } from '../time/user-time'
 
 function tempDb() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'anchor-tlq-'))
@@ -23,7 +24,9 @@ function seg(db: ReturnType<typeof tempDb>, state: UserState, start: number, end
 test('dayBounds 返回本地午夜起的 86400 秒', () => {
   const b = dayBounds(DATE)
   assert.equal(b.endS - b.startS, 86400)
-  assert.equal(new Date(b.startS * 1000).getHours(), 0)
+  // 「本地午夜」= 用户时区零点；断言须基于用户时区，
+  // 不能用 new Date(...).getHours()（系统本地时区，CI 为 UTC 会偏）
+  assert.equal(b.startS, userZonedTimeToUtc(DATE, 0))
 })
 
 test('分段裁切到当日边界，跨午夜段只保留当日部分', () => {

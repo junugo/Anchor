@@ -63,6 +63,14 @@ function makeTestCoordinator() {
 
 const tick = () => new Promise(r => setTimeout(r, 0))
 
+// broadcast 经动态 import('./server')，CI 冷导入可能远超一拍；轮询直至送达
+async function untilSent(client: FakeWs, count: number, timeoutMs = 10000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (client.sent.length < count && Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 25))
+  }
+}
+
 test('open broadcasts open message with prompt_id and timeoutSeconds', async () => {
   const { client, uninstall } = installFakeClient()
   // 长超时：open 触发的 './server' 冷导入可能阻塞事件循环数秒，超过 1s 会导致
@@ -70,7 +78,7 @@ test('open broadcasts open message with prompt_id and timeoutSeconds', async () 
   const coord = createPromptCoordinator<{ text: string }>(testCoordinatorOptions(60))
   try {
     const promptId = coord.open({ text: '占位' })
-    await tick()
+    await untilSent(client, 1)
     assert.equal(client.sent.length, 1)
     const msg = client.sent[0]!
     assert.equal(msg['type'], 'context_switch:prompt')
@@ -90,9 +98,9 @@ test('first response wins, subsequent responses ignored', async () => {
   const coord = makeTestCoordinator()
   try {
     const promptId = coord.open({ text: 'x' })
-    await tick()
+    await untilSent(client, 1)
     assert.equal(coord.handleResponse(promptId, 'answered'), true)
-    await tick()
+    await untilSent(client, 2) // open + dismiss
     const dismisses = client.sent.filter(m => m['type'] === 'context_switch:dismiss')
     assert.equal(dismisses.length, 1)
     assert.equal(dismisses[0]!['prompt_id'], promptId)
@@ -129,9 +137,9 @@ test('new open replaces unresolved prompt with expired dismiss', async () => {
   const coord = makeTestCoordinator()
   try {
     const first = coord.open({ text: 'first' })
-    await tick()
+    await untilSent(client, 1)
     const second = coord.open({ text: 'second' })
-    await tick()
+    await untilSent(client, 2) // 第二个 open + 第一个的 expired dismiss
     const dismisses = client.sent.filter(m => m['type'] === 'context_switch:dismiss')
     assert.equal(dismisses.length, 1)
     assert.equal(dismisses[0]!['prompt_id'], first)
@@ -151,6 +159,7 @@ test('server-side expiry broadcasts expired dismiss after timeout+grace', async 
   try {
     const promptId = coord.open({ text: 'x' })
     await new Promise(r => setTimeout(r, 1100 + 5000 + 100)) // 1s timeout + 5s grace + 余量
+    await untilSent(client, 2) // open + expired dismiss；CI 冷导入可能晚于上面的固定等待
     const dismisses = client.sent.filter(m => m['type'] === 'context_switch:dismiss')
     assert.equal(dismisses.length, 1)
     assert.equal(dismisses[0]!['prompt_id'], promptId)
