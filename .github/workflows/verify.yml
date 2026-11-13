@@ -29,6 +29,10 @@ jobs:
           pnpm --filter @anchor/db exec node -e "require('better-sqlite3'); console.log('better-sqlite3 ok')"
           pnpm --filter apps-vscode-ext exec node -e "require('esbuild'); console.log('esbuild ok')"
 
+      # tsconfig extends ./.wxt/tsconfig.json（WXT 生成目录，不入库）；postinstall 兜底
+      - name: 生成 WXT 类型目录
+        run: pnpm --filter apps-chrome-ext exec wxt prepare
+
       - name: Lint
         run: pnpm lint
 
