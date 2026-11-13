@@ -9,8 +9,14 @@ permissions:
   contents: write
 
 jobs:
-  desktop:
-    name: 构建桌面端（Windows x64）
+  # 阶段 1：质量检查（与 CI 同一套 verify，全绿才进入打包）
+  verify:
+    uses: ./.github/workflows/verify.yml
+
+  # 阶段 2：打包所有客户端
+  package-desktop:
+    name: 打包桌面端（Windows x64）
+    needs: verify
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +31,7 @@ jobs:
         working-directory: apps/desktop-rs
         run: cargo build --release
 
-      - name: 打包产物
+      - name: 重命名产物
         shell: pwsh
         run: |
           $ver = $env:GITHUB_REF_NAME.TrimStart('v')
@@ -36,8 +42,9 @@ jobs:
           name: anchor-desktop-windows-x64
           path: anchor-desktop-*-windows-x64.exe
 
-  android:
-    name: 构建 Android APK
+  package-android:
+    name: 打包 Android APK
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +64,7 @@ jobs:
         working-directory: apps/mobile/android
         run: ./gradlew :app:assembleDebug
 
-      - name: 打包产物
+      - name: 重命名产物
         run: |
           ver=${GITHUB_REF_NAME#v}
           cp apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk "anchor-mobile-${ver}-debug.apk"
@@ -67,9 +74,10 @@ jobs:
           name: anchor-mobile-apk
           path: anchor-mobile-*-debug.apk
 
-  release:
+  # 阶段 3：发布 GitHub Release
+  publish:
     name: 发布 GitHub Release
-    needs: [desktop, android]
+    needs: [package-desktop, package-android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

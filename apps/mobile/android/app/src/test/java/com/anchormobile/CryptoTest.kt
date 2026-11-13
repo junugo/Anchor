@@ -35,8 +35,9 @@ class CryptoTest {
 
     @Test
     fun decryptsTsCiphertext() {
-        // 由 packages/utils encryptEnvelope（WebCrypto）生成的一次性密文：wire 兼容验证
-        val envelope = """{"enc":true,"v":1,"data":"r9z25TxQ3c3i/lNPxOTeqWqSS2M/LSOhax2VaWqUcHyADmmxW+zHTkwpD24TedE8iikrBMW9WqBnSqU6XCrxOoPPceH2aE7iTXXRGisvv+4I3iDM2MVmKWnSV8VAF/JdwO9UPbZmLzyrgcXXfqT7UGwF5Eafwcm0ZB+EuN+G3Q8coDYV7QCxdREXOW7phFcpNxI54SwH7c2eXD/1vl+4VFi+OfngUWd3X+PdXEMTxhm/Yn+w4pWbVSEN/Qf+DyFcQEy9l1DwW0u40+1o3YAewx0="}"""
+        // 由 packages/utils encryptJson（WebCrypto）生成的一次性密文：wire 兼容验证
+        // 生成方式：encryptJson({...event_type:"window_focus"...}, Crypto.DEFAULT_DATA_KEY)
+        val envelope = """{"enc":true,"v":1,"data":"BNoTCnPlo3GMml3GvifSAt50ASNMn5uWBqoZM1Pj+Ee9Z0Jcq5iu1kq2eWJaj7XYQyMVzsERPB/pS5pb2yIAeue97piv8pqIQJECwPPPp6i8DuhbglIM2K0c6oaKA6kgHWaZs4D042FxJEIvVUH+vy9KuNDzpNZijFb0eGUGm0cu2S7i3ojq1c9u0w6ITA2jvVH7"}"""
         val plaintext = Crypto.decryptEnvelope(envelope, Crypto.DEFAULT_DATA_KEY)
         assertTrue("明文: $plaintext", plaintext.contains("window_focus"))    }
 }

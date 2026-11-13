@@ -118,9 +118,6 @@ pub fn load() -> Config {
     }
 }
 
-    cfg
-}
-
 pub fn save(cfg: &Config) -> std::io::Result<()> {
     let dir = data_dir();
     std::fs::create_dir_all(&dir)?;

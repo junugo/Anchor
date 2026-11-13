@@ -3,6 +3,13 @@
   "private": true,
   "packageManager": "pnpm@10.25.0",
   "type": "module",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "sharp"
+    ]
+  },
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
