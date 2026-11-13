@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { eq } from 'drizzle-orm'
 import { behaviorLogs, closeDb, createDb, userLivingContext } from '@anchor/db'
-import { runPipeline, runPipelineGuarded, resetPipelineState, getPipelineRunCount, getPrevState } from './pipeline'
+import { runPipeline, runPipelineGuarded, resetPipelineState, getPipelineRunCount, getPrevState, enablePipelineForTest } from './pipeline'
 import { reportSleepStart, recordWakeupSession, getTodaySession } from '../sleep/engine'
 import { initSunsetConfig, updateSunsetConfig } from '../sunset/config'
 import { getDailyContext, resetDailyContext } from '../memory/daily-context'
@@ -59,6 +59,7 @@ test('runPipeline returns inference result with state and confidence', async () 
 test('runPipelineGuarded blocks concurrent executions, coalesces pending full', async () => {
   const { dir, db } = tempDb('pipeline-guard')
   resetPipelineState()
+  enablePipelineForTest() // 全局 test-setup 已禁用守卫，本用例专测守卫需恢复
   try {
     // 同时发起两个 guarded 调用：第一个立即执行；第二个被重叠防护拦截，
     // 但 full 请求不静默丢弃——置 pending 标志，第一个运行结束后补跑一次

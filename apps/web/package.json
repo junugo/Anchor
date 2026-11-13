@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "next lint",
-    "test": "tsx --test \"lib/**/*.test.ts\"",
+    "test": "tsx --test --import=./lib/test-setup.ts \"lib/**/*.test.ts\"",
     "backfill:segments": "tsx scripts/backfill-state-segments.ts",
     "close:segments": "tsx scripts/close-stale-open-segments.ts",
     "close:segments:apply": "tsx scripts/close-stale-open-segments.ts --apply"

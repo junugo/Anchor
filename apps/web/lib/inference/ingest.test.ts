@@ -6,12 +6,9 @@ import test from 'node:test'
 import { eq } from 'drizzle-orm'
 import { behaviorLogs, closeDb, createDb, processClassifications, userLivingContext } from '@anchor/db'
 import { applyIngestContext, ingestBehavior } from './ingest'
-import { disablePipelineForTest } from './pipeline'
 import { recordActionResponse, recordInterventionResult } from '../ws/handlers'
 
-// 本文件只测行为写入与进程注册，不测推断：ingest / handlers 的立即触发是
-// fire-and-forget 动态导入，管线尾巴无法在关库前确定性排空，直接禁用管线
-disablePipelineForTest()
+// 管线已由 ../test-setup.ts（--import 全局前置）禁用，此处无需重复处理
 
 function tempDbPath(name: string): { dir: string; dbPath: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `anchor-${name}-`))
