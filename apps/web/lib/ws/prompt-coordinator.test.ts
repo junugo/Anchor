@@ -189,9 +189,9 @@ test('input take-over broadcasts typing and stops server expiry', async () => {
   const coord = makeTestCoordinator()
   try {
     const promptId = coord.open({ text: 'x' })
-    await tick()
+    await untilSent(client, 1)
     assert.equal(coord.handleInput(promptId), true)
-    await tick()
+    await untilSent(client, 2) // open + typing
     const typings = client.sent.filter(m => m['type'] === 'context_switch:typing')
     assert.equal(typings.length, 1)
     assert.equal(typings[0]!['prompt_id'], promptId)
@@ -202,7 +202,7 @@ test('input take-over broadcasts typing and stops server expiry', async () => {
 
     // 接管后迟到提交仍然有效（15s 后提交不失效）
     assert.equal(coord.handleResponse(promptId, 'answered'), true)
-    await tick()
+    await untilSent(client, 3) // + dismiss answered
     const dismisses = client.sent.filter(m => m['type'] === 'context_switch:dismiss')
     assert.equal(dismisses.length, 1)
     assert.equal(dismisses[0]!['reason'], 'answered')
@@ -217,10 +217,10 @@ test('duplicate input is idempotent (single typing broadcast)', async () => {
   const coord = makeTestCoordinator()
   try {
     const promptId = coord.open({ text: 'x' })
-    await tick()
+    await untilSent(client, 1)
     assert.equal(coord.handleInput(promptId), true)
     assert.equal(coord.handleInput(promptId), true)
-    await tick()
+    await untilSent(client, 2) // open + 单条 typing（幂等）
     assert.equal(client.sent.filter(m => m['type'] === 'context_switch:typing').length, 1)
   } finally {
     coord._resetForTest()

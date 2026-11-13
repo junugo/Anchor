@@ -277,8 +277,7 @@ test('notifyIntentSubmitted without prompt_id broadcasts answered dismiss (reope
     client.sent.length = 0
 
     anchor.notifyIntentSubmitted(undefined)
-    await new Promise(r => setTimeout(r, 0))
-    const dismiss = client.sent.find(m => m['type'] === 'intent:dismiss')
+    const dismiss = await untilMessage(client.sent, m => m['type'] === 'intent:dismiss')
     assert.ok(dismiss, '重开入口提交也应广播 dismiss answered')
     assert.equal(dismiss['reason'], 'answered')
     assert.equal(dismiss['prompt_id'], undefined)

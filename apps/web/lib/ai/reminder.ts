@@ -9,11 +9,22 @@ export interface ReminderContext {
   [key: string]: unknown
 }
 
+// 测试专用：禁用提醒触发（决策引擎/睡眠引擎等的 fire-and-forget 调用会在
+// 测试关库后触碰 DB，被 node:test 归因为「测试结束后仍在活动的异步错误」）
+let _disabledForTest = false
+export function disableAiReminderForTest(): void {
+  _disabledForTest = true
+}
+export function enableAiReminderForTest(): void {
+  _disabledForTest = false
+}
+
 export async function triggerAiReminder(
   db: Db,
   scene: ReminderScene,
   ctx: ReminderContext = {}
 ): Promise<string | void> {
+  if (_disabledForTest) return
   const summary = await buildBehaviorSummary(db)
   const { sunsetConfig } = await import('@anchor/db')
   const cfg = db
