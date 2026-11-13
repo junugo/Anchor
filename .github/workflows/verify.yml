@@ -23,8 +23,10 @@ jobs:
         run: pnpm install || (pnpm approve-builds --all && pnpm install)
 
       - name: 校验原生模块可用
+        # pnpm 严格隔离：better-sqlite3 挂在 @anchor/db 下而非 apps-web，
+        # esbuild 挂在 apps-vscode-ext 下；从各自直属包探测
         run: |
-          pnpm --filter apps-web exec node -e "require('better-sqlite3'); console.log('better-sqlite3 ok')"
+          pnpm --filter @anchor/db exec node -e "require('better-sqlite3'); console.log('better-sqlite3 ok')"
           pnpm --filter apps-vscode-ext exec node -e "require('esbuild'); console.log('esbuild ok')"
 
       - name: Lint
