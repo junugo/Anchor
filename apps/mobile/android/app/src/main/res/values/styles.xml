@@ -1,0 +1,12 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <!-- 系统默认 sans-serif 族，完整支持中文、日文、韩文等多语言字符 -->
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <!-- 明确文本编码兼容设置 -->
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
+
+</resources>

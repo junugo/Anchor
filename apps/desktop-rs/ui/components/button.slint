@@ -1,0 +1,27 @@
+import { Palette } from "../theme.slint";
+
+// 主按钮（accent）/ 次按钮（描边）
+export component AnchorButton inherits Rectangle {
+    in property <string> label: "";
+    in property <bool> primary: false;
+    callback clicked();
+
+    width: 72px;
+    height: 30px;
+    border-radius: 6px;
+    background: root.primary ? (ta.has-hover ? #a8531f : Palette.accent) : (ta.has-hover ? Palette.surface-raised : Palette.surface);
+    border-width: root.primary ? 0px : 1px;
+    border-color: Palette.border;
+
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        text: root.label;
+        font-size: 13px;
+        color: root.primary ? #ffffff : Palette.text-secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

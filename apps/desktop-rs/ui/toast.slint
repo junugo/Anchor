@@ -1,0 +1,95 @@
+import { Palette } from "theme.slint";
+
+export component Toast inherits Window {
+    title: "Anchor Toast";
+    icon: @image-url("../assets/icon.png");
+    no-frame: true;
+    always-on-top: true;
+    width: 360px;
+    height: 80px;
+    background: transparent;
+
+    in property <string> title-text: "提示";
+    in property <string> body-text: "";
+    in property <int> autohide-delay: 5;
+
+    callback close-requested();
+
+    // 内部计数器（input 属性不可自赋值）
+    property <int> remaining: root.autohide-delay;
+
+    Rectangle {
+        border-radius: 8px;
+        background: Palette.dark-bg;
+        border-width: 1px;
+        border-color: Palette.dark-border;
+
+        // 左侧红色指示条
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: 4px;
+            height: parent.height;
+            background: Palette.danger;
+            border-radius: 4px;
+        }
+
+        VerticalLayout {
+            x: 12px;
+            y: 10px;
+            padding-right: 12px;
+            spacing: 6px;
+
+            Text {
+                text: root.title-text;
+                font-size: 14px;
+                font-weight: 600;
+                color: Palette.dark-text;
+            }
+            Text {
+                text: root.body-text;
+                font-size: 12px;
+                color: Palette.dark-text-secondary;
+                wrap: word-wrap;
+            }
+        }
+
+        // 关闭按钮
+        Rectangle {
+            x: parent.width - 28px;
+            y: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            background: close-ta.has-hover ? #3a3228 : transparent;
+
+            close-ta := TouchArea {
+                clicked => { root.close-requested(); }
+            }
+            Text {
+                x: 5px;
+                y: 2px;
+                text: "×";
+                font-size: 14px;
+                color: Palette.dark-text-secondary;
+            }
+        }
+
+        // 自动隐藏定时器
+        timer := Timer {
+            interval: 1s;
+            running: true;
+            triggered => {
+                root.remaining -= 1;
+                if (root.remaining <= 0) {
+                    root.close-requested();
+                }
+            }
+        }
+
+        // 点击整个弹窗关闭
+        touch := TouchArea {
+            clicked => { root.close-requested(); }
+        }
+    }
+}

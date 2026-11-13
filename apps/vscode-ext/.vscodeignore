@@ -1,0 +1,15 @@
+.claude/**
+.github/**
+.vscode-test/**
+.gitignore
+.mocharc.yml
+.vscode-test.js
+src/**
+node_modules/**
+scripts/**
+test-workspace/**
+tsconfig.json
+build.mjs
+*.ts
+*.map
+.pnpm-store/**

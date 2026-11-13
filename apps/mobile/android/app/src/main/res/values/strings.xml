@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AnchorMobile</string>
+    <string name="accessibility_service_description">Anchor 用于执行节律提醒与宵禁干预</string>
+
+    <!-- ─── 导航栏 nav_ ─────────────────────────────────────────── -->
+    <string name="nav_dashboard">仪表盘</string>
+    <string name="nav_chat">对话</string>
+    <string name="nav_apps">应用</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- ─── 通用 common_ / 状态标签 ─────────────────────────────── -->
+    <string name="common_app_name_title">Anchor</string>
+    <string name="common_connected">已连接</string>
+    <string name="common_disconnected">未连接</string>
+    <string name="common_running">运行中</string>
+    <string name="common_not_started">未启动</string>
+    <string name="common_enabled">已开启</string>
+    <string name="common_disabled">未开启</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_confirm">确认</string>
+    <string name="common_open">打开</string>
+    <string name="common_close">关闭</string>
+    <string name="common_send">发送</string>
+    <string name="common_save_reconnect">保存并重连</string>
+    <string name="common_save_key_reconnect">保存密钥并重连</string>
+    <string name="common_back">返回设置页</string>
+    <string name="common_edit">编辑服务器地址</string>
+    <string name="common_server_url">服务器地址</string>
+    <string name="common_data_key">数据密钥</string>
+    <string name="common_usb_forward">USB 转发</string>
+
+    <!-- ─── 首页仪表盘 home_ ─────────────────────────────────────── -->
+    <string name="home_current_state">当前状态</string>
+    <string name="home_anchor_says">Anchor 说</string>
+    <string name="home_rhythm_record">节律记录</string>
+    <string name="home_btn_meal">吃饭</string>
+    <string name="home_btn_leave_room">离开房间</string>
+    <string name="home_btn_sleep">睡觉</string>
+    <string name="home_service_status_format">后台服务：%1$s</string>
+    <string name="home_dlg_meal_title">确定要记录吃饭吗？</string>
+    <string name="home_dlg_leave_room_title">确定要离开房间吗？</string>
+    <string name="home_dlg_sleep_title">确定要标记已入睡吗？</string>
+    <string name="home_dlg_sleep_msg">服务器将按睡眠状态推断，最长 8 小时不再实时判断你的状态</string>
+
+    <!-- ─── 首页意图 home_intention_ ──────────────────────────────── -->
+    <string name="home_intention_title">今日意图</string>
+    <string name="home_intention_empty">还没有写今日意图</string>
+    <string name="home_intention_btn_write">写睡前意图</string>
+
+    <!-- ─── 设置面板 settings_ ──────────────────────────────────── -->
+    <string name="settings_title">设置</string>
+    <string name="settings_subtitle">授权状态、后台服务需要注意的地方</string>
+    <string name="settings_section_runtime">运行状态</string>
+    <string name="settings_section_permissions">系统权限</string>
+    <string name="settings_section_sunset">日落</string>
+    <string name="settings_section_server">服务器连接</string>
+    <string name="settings_section_battery">省电保护</string>
+    <string name="settings_section_advanced">高级操作</string>
+
+    <string name="settings_service">后台服务</string>
+    <string name="settings_server_conn">服务器连接</string>
+    <string name="settings_current_phase">当前阶段</string>
+    <string name="settings_bedtime">目标时间</string>
+    <string name="settings_sunset_desc">日落实行节律统一路线</string>
+    <string name="settings_usb_tip">USB 转发：先在电脑执行 adb reverse tcp:4000 tcp:4000，再点击「USB 转发」将地址设为本地。</string>
+    <string name="settings_data_key_tip">数据密钥须与服务器 ANCHOR_DATA_KEY 一致；留空保存则恢复内置开发密钥（仅限本地开发）。</string>
+
+    <string name="settings_perm_all_ready">所有权限已准备就绪</string>
+    <string name="settings_perm_require">请开启所有必要权限</string>
+    <string name="settings_btn_open_perm">打开系统权限</string>
+    <string name="settings_btn_goto">前往</string>
+    <string name="settings_btn_open_app_details">打开应用权限详情</string>
+
+    <string name="settings_btn_ignore_battery">忽略电池优化</string>
+    <string name="settings_rom_tip">部分系统（如小米 MIUI / HyperOS）会在后台清理时关闭无障碍服务。请将 Anchor 的省电策略设为「无限制」并允许自启动，避免权限反复丢失。</string>
+
+    <string name="settings_dev_title">开发者工具</string>
+    <string name="settings_dev_desc">验证通知、弹一弹、系统状态</string>
+
+    <string name="settings_btn_force_breach">强制解除宵禁并记录破戒</string>
+    <string name="settings_dlg_breach_title">确认解除宵禁？</string>
+    <string name="settings_dlg_breach_msg">此操作会立即结束宵禁阶段，并在破戒记录中留下一次手动解除记录。</string>
+
+    <!-- ─── 权限标签 perm_ ─────────────────────────────────────── -->
+    <string name="perm_notification">通知权限</string>
+    <string name="perm_usage_stats">应用使用权限</string>
+    <string name="perm_accessibility">无障碍服务</string>
+    <string name="perm_overlay">悬浮窗权限</string>
+
+    <!-- ─── 日落阶段标签 sunset_ ───────────────────────────────── -->
+    <string name="sunset_t60">T-60 分钟</string>
+    <string name="sunset_t30">T-30 分钟</string>
+    <string name="sunset_t15">T-15 分钟</string>
+    <string name="sunset_t0">已进入宵禁</string>
+    <string name="sunset_off">未激活</string>
+
+    <!-- ─── 开发者工具 dev_ ─────────────────────────────────────── -->
+    <string name="dev_title">开发者工具</string>
+    <string name="dev_desc">仅供验证系统行为，不影响真实历史</string>
+    <string name="dev_sys_check">系统检查</string>
+    <string name="dev_websocket">WebSocket</string>
+
+    <string name="dev_section_notif">通知测试</string>
+    <string name="dev_btn_notif_generic">普通通知</string>
+    <string name="dev_btn_notif_ai">AI 提醒</string>
+    <string name="dev_btn_notif_intent">意图捕获</string>
+    <string name="dev_btn_notif_soft">软性提醒</string>
+    <string name="dev_btn_notif_strong">强制提醒</string>
+    <string name="dev_test_generic_body">这是 Anchor 通知测试文案。</string>
+    <string name="dev_test_ai_body">这是一条 AI 提醒测试。</string>
+    <string name="dev_test_intent_prompt">你现在想要做什么？</string>
+    <string name="dev_test_soft_body">这是一条软性提醒测试。</string>
+    <string name="dev_test_strong_body">这是一条强制提醒测试。</string>
+
+    <string name="dev_done_notif_generic">已发送普通通知</string>
+    <string name="dev_done_notif_ai">已发送 AI 提醒</string>
+    <string name="dev_done_notif_intent">已发送意图捕获</string>
+    <string name="dev_done_notif_soft">已发送软性提醒</string>
+    <string name="dev_done_notif_strong">已发送强制提醒</string>
+    <string name="dev_overlay_perm_required">未授予悬浮窗所需权限</string>
+
+    <string name="dev_section_sunset">日落测试</string>
+    <string name="dev_btn_sunset_t60">T60 倒计时</string>
+    <string name="dev_btn_sunset_t30">T30 放松</string>
+    <string name="dev_btn_sunset_t15">T15 高刺激拦截</string>
+    <string name="dev_btn_sunset_t0">T0 完全宵禁</string>
+    <string name="dev_btn_sunset_off">关闭日落实时</string>
+
+    <string name="dev_done_sunset_t60">已触发 T60</string>
+    <string name="dev_done_sunset_t30">已触发 T30，屏幕变暗</string>
+    <string name="dev_done_sunset_t15">已触发 T15，高刺激应用将被拦截</string>
+    <string name="dev_done_sunset_t0">已触发 T0，宵禁页面将弹出</string>
+    <string name="dev_done_sunset_off">已关闭日落实时通知与响应</string>
+
+    <string name="dev_section_interaction">交互功能测试</string>
+    <string name="dev_btn_wakeup">起床验证 / 弹一弹</string>
+    <string name="dev_btn_state_update">状态更新消息</string>
+    <string name="dev_btn_refresh_notif">刷新前台服务通知</string>
+
+    <string name="dev_done_wakeup">已打开起床验证页面</string>
+    <string name="dev_done_state_update">已发送状态更新消息</string>
+    <string name="dev_done_refresh_notif">刷新前台服务通知</string>
+
+    <!-- ─── 用户状态 state_ ─────────────────────────────────────── -->
+    <string name="state_working">专注工作</string>
+    <string name="state_entertaining">娱乐中</string>
+    <string name="state_dissociating">解离中</string>
+    <string name="state_resting">休息中</string>
+    <string name="state_sleeping">睡眠中</string>
+    <string name="state_away">在校</string>
+    <string name="state_unknown">等待服务器推断</string>
+
+    <!-- ─── 聊天 chat_ ─────────────────────────────────────────── -->
+    <string name="chat_history_title">历史会话</string>
+    <string name="chat_no_history">暂无历史会话</string>
+    <string name="chat_new_session">新对话</string>
+    <string name="chat_empty_session">（空会话）</string>
+    <string name="chat_session_rename">重命名</string>
+    <string name="chat_session_delete">删除</string>
+    <string name="chat_rename_dialog_title">重命名会话</string>
+    <string name="chat_rename_dialog_hint">会话名称</string>
+    <string name="chat_rename_dialog_confirm">确认</string>
+    <string name="chat_delete_dialog_title">删除会话</string>
+    <string name="chat_delete_dialog_msg">该会话的全部消息将被删除，不可恢复。</string>
+    <string name="chat_tab_title">对话</string>
+    <string name="chat_empty_hint">Anchor 在这里陪你</string>
+    <string name="chat_loading">正在连接…</string>
+    <string name="chat_placeholder">跟 Anchor 说说话…</string>
+    <string name="chat_err_connect">无法连接服务器</string>
+    <string name="chat_err_create_session">无法创建会话</string>
+    <string name="chat_err_send_fail">连接失败，请重试。</string>
+    <string name="chat_err_network">网络错误，请重试。</string>
+
+    <!-- ─── 时间格式化 time_ ────────────────────────────────────── -->
+    <string name="time_yesterday">昨天</string>
+    <string name="time_days_ago">%1$d 天前</string>
+
+    <!-- ─── 干预页 intervention_ ───────────────────────────────── -->
+    <string name="intervention_title">Anchor 提醒</string>
+    <string name="intervention_default">刚才发生了一次状态切换</string>
+    <string name="intervention_detected_format">检测到：%1$s</string>
+    <string name="intervention_btn_accept">回去工作</string>
+    <string name="intervention_btn_reject">我在休息</string>
+
+    <!-- ─── 状态切换弹窗 context_switch_ ────────────────────────── -->
+    <string name="context_switch_title">状态切换</string>
+    <string name="context_switch_body">你似乎从工作切换到了其他状态。方便说一下接下来的打算吗？</string>
+    <string name="context_switch_countdown_format">%1$ds 后自动跳过，输入后取消倒计时</string>
+    <string name="context_switch_btn_submit">提交</string>
+    <string name="context_switch_btn_skip">跳过</string>
+
+    <!-- ─── 宵禁页 curfew_ ─────────────────────────────────────── -->
+    <string name="curfew_title">就寝时间到了</string>
+    <string name="curfew_subtitle">手机已进入睡眠保护模式</string>
+    <string name="curfew_btn_unlock">强制解锁并记录破戒</string>
+    <string name="curfew_btn_wakeup">我醒了，去验证起床</string>
+    <string name="curfew_btn_back">返回 Anchor</string>
+
+    <!-- ─── 起床页 wakeup_ ─────────────────────────────────────── -->
+    <string name="wakeup_title">起床验证</string>
+    <string name="wakeup_instruction">猛烈来回摇动手机 5 次</string>
+    <string name="wakeup_progress_format">%1$d / %2$d</string>
+    <string name="wakeup_btn_done">我已经醒了</string>
+
+    <!-- ─── 通知通道 channel_ ──────────────────────────────────── -->
+    <string name="channel_sunset">宵禁提醒</string>
+    <string name="channel_intervention">状态干预</string>
+    <string name="channel_general">Anchor 通知</string>
+    <string name="channel_wakeup">起床闹钟</string>
+    <string name="channel_service">Anchor 后台服务</string>
+    <string name="channel_sunset_overlay">宵禁视觉保护</string>
+
+    <!-- ─── 通知文案 notif_ ────────────────────────────────────── -->
+    <string name="notif_sunset_t60_title">距离就寝还有 60 分钟</string>
+    <string name="notif_sunset_t30_title">距离就寝还有 30 分钟</string>
+    <string name="notif_sunset_t30_text">准备放松</string>
+    <string name="notif_sunset_t0_title">就寝时间到了</string>
+    <string name="notif_sunset_t0_text">手机已进入夜间保护模式</string>
+
+    <string name="notif_intervention_title">Anchor 提醒</string>
+    <string name="notif_intervention_body_format">%1$s%2$s检测到：%3$s</string>
+    <string name="notif_intervention_btn_accept">回去工作</string>
+    <string name="notif_intervention_btn_reject">我在休息</string>
+    <string name="notif_soft_btn_dismiss">知道了</string>
+
+    <string name="notif_accessibility_lost_title">无障碍服务已失效</string>
+    <string name="notif_accessibility_lost_text">Anchor 的无障碍服务被系统关闭了。点击这里前往重新开启，否则宵禁拦截将无法工作。</string>
+
+    <string name="notif_intent_title">记录当前意图？</string>
+    <string name="notif_intent_btn_record">记录</string>
+    <string name="notif_intent_btn_skip">稍后</string>
+    <string name="notif_intent_confirm_title">昨日意图</string>
+    <string name="notif_intent_confirm_btn">确认</string>
+
+    <!-- ─── 睡前意图 intent_ ────────────────────────────────────── -->
+    <string name="intent_capture_title">睡前意图</string>
+    <string name="intent_capture_placeholder">例如：明天优先完成 API 文档和 review PR</string>
+    <string name="intent_capture_countdown_format">%1$ds 后自动关闭，可从通知重开</string>
+    <string name="intent_capture_btn_submit">保存意图</string>
+    <string name="intent_capture_btn_later">稍后</string>
+    <string name="intent_modify_title">修改意图</string>
+    <string name="intent_modify_body">调整一下今天最重要的一件事：</string>
+    <string name="intent_modify_btn_cancel">取消</string>
+    <string name="intent_manual_body">今天（或明天）最重要的一件事是什么？</string>
+    <string name="intent_confirm_title">昨日意图</string>
+    <string name="intent_confirm_btn_confirm">确认</string>
+    <string name="intent_confirm_btn_modify">修改</string>
+
+    <string name="notif_wakeup_title">起床了</string>
+    <string name="notif_wakeup_text">完成身体确认后开始今天</string>
+
+    <!-- ─── 入睡确认 sleep_confirm_ ────────────────────────────── -->
+    <string name="notif_sleep_confirm_title">睡着了吗？</string>
+    <string name="notif_sleep_confirm_text">检测到你很久没活动，推测你可能已经入睡。若没有回应，将自动视为已睡着。</string>
+    <string name="notif_sleep_confirm_btn_notyet">还没睡</string>
+    <string name="sleep_confirm_title">睡着了吗？</string>
+    <string name="sleep_confirm_body">Anchor 检测到你很久没活动，推测你可能已经入睡。若没有回应，将自动视为已睡着。</string>
+    <string name="sleep_confirm_btn_notyet">还没睡</string>
+
+    <!-- ─── 强制解锁原因 sunset_release_ ─────────────────────────── -->
+    <string name="sunset_release_dialog_title">强制解除宵禁</string>
+    <string name="sunset_release_dialog_hint">记录一下原因（必填）</string>
+    <string name="sunset_release_dialog_confirm">确认解除</string>
+
+    <string name="notif_alarm_ai_text">起床了，先确认一下身体已经醒来</string>
+
+    <!-- ─── 前台服务 svc_ ──────────────────────────────────────── -->
+    <string name="svc_foreground_title">Anchor 正在守护节律</string>
+    <string name="svc_overlay_title">Anchor 正在降低屏幕刺激</string>
+    <string name="svc_overlay_phase_format">当前宵禁阶段：%1$s</string>
+</resources>

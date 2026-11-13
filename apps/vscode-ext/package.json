@@ -1,0 +1,59 @@
+{
+  "name": "apps-vscode-ext",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "icon": "assets/icon.png",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "vscode:prepublish": "pnpm build",
+    "package": "vsce package --no-dependencies",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Anchor",
+      "properties": {
+        "anchor.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "Anchor 服务器地址"
+        },
+        "anchor.dataKey": {
+          "type": "string",
+          "default": "",
+          "description": "上行行为数据加密密钥（须与服务器 ANCHOR_DATA_KEY 一致；留空使用内置开发密钥，仅限本地开发）"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "anchor.helloWorld",
+        "title": "Anchor: Hello World"
+      }
+    ]
+  },
+  "dependencies": {
+    "@anchor/api-client": "workspace:*",
+    "@anchor/types": "workspace:*",
+    "@anchor/utils": "workspace:*",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@anchor/ui": "workspace:*",
+    "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.18.1",
+    "@vscode/vsce": "^3.3.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  }
+}

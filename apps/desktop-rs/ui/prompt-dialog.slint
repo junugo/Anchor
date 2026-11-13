@@ -1,0 +1,149 @@
+import { Palette } from "theme.slint";
+
+// 通用计时提示弹窗（状态切换 / 睡前意图共用模板）。
+// 服务器广播 prompt 时由 wm 同步循环打开；任一端响应后服务器广播 dismiss，本窗销毁；
+// remaining 秒内未输入则自动超时（由 wm 决定上报动作），一旦输入（typed）倒计时停止，只能手动操作。
+export component PromptDialog inherits Window {
+    title: "Anchor Prompt";
+    icon: @image-url("../assets/icon.png");
+    no-frame: true;
+    always-on-top: true;
+    width: 420px;
+    height: 250px;
+    background: transparent;
+
+    // 静态配置（new 时设置一次）
+    in property <string> title-text: "提示";
+    in property <string> timeout-hint: "后自动跳过";
+    in property <string> submit-label: "提交";
+    in property <string> skip-label: "跳过";
+    // 每次打开时设置（watch 层决定动态/静态）
+    in property <string> body-text: "";
+    in property <string> placeholder-text: "";
+    // 输入框文本：打开弹窗时由 Rust 设置初始值，用户编辑后绑定断开
+    in-out property <string> input-text: "";
+    // 剩余秒数；typed = true 时倒计时已取消，忽略 remaining
+    in property <int> remaining: 15;
+    // 用户是否已开始输入（输入后取消自动超时）
+    in-out property <bool> typed: false;
+
+    callback submit-requested(string);
+    callback skip-requested();
+    callback close-requested();
+    // 用户首次输入（edited 首次触发）：Rust 侧据此上报接管信号
+    callback input-started();
+
+    Rectangle {
+        border-radius: 10px;
+        background: Palette.dark-bg;
+        border-width: 1px;
+        border-color: Palette.dark-border;
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+
+            Text {
+                text: root.title-text;
+                font-size: 17px;
+                font-weight: 600;
+                color: Palette.dark-text;
+            }
+            Text {
+                text: root.body-text;
+                font-size: 12px;
+                color: Palette.dark-text-secondary;
+                wrap: word-wrap;
+            }
+
+            Rectangle {
+                height: 40px;
+                border-radius: 6px;
+                background: #2a2520;
+                border-width: 1px;
+                border-color: input.has-focus ? Palette.accent : Palette.dark-border;
+
+                input := TextInput {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    font-size: 13px;
+                    color: Palette.dark-text;
+                    selection-background-color: Palette.accent-muted;
+                    selection-foreground-color: Palette.dark-text;
+                    text: root.input-text;
+                    edited => {
+                        if (!root.typed) {
+                            root.typed = true;
+                            root.input-started();
+                        }
+                    }
+                }
+
+                // 占位提示：输入框为空且未聚焦时显示
+                if input.text == "" && !input.has-focus: Text {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    font-size: 13px;
+                    color: Palette.dark-text-secondary;
+                    text: root.placeholder-text;
+                }
+            }
+
+            Text {
+                text: root.typed ? "" : "\{root.remaining}s \{root.timeout-hint}";
+                font-size: 11px;
+                color: Palette.dark-text-secondary;
+                horizontal-alignment: right;
+                height: 14px;
+            }
+
+            Rectangle {
+                height: 34px;
+
+                Rectangle {
+                    width: 76px;
+                    height: 32px;
+                    x: parent.width - self.width - 86px;
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: Palette.dark-border;
+                    background: skip-ta.has-hover ? #2a2520 : transparent;
+
+                    skip-ta := TouchArea {
+                        clicked => { root.skip-requested(); }
+                    }
+                    Text {
+                        text: root.skip-label;
+                        font-size: 13px;
+                        color: Palette.dark-text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Rectangle {
+                    width: 76px;
+                    height: 32px;
+                    x: parent.width - self.width;
+                    border-radius: 6px;
+                    background: submit-ta.has-hover ? #d0702f : Palette.accent;
+
+                    submit-ta := TouchArea {
+                        clicked => { root.submit-requested(input.text); }
+                    }
+                    Text {
+                        text: root.submit-label;
+                        font-size: 13px;
+                        color: #ffffff;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

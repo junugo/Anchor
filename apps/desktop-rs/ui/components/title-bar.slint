@@ -1,0 +1,68 @@
+import { Palette } from "../theme.slint";
+
+// 无边框窗口的自绘标题栏：左标题，右关闭，空白处可拖拽
+export component TitleBar inherits Rectangle {
+    in property <string> title: "";
+    callback drag-to(length, length);
+    callback close-requested();
+
+    property <length> press-x;
+    property <length> press-y;
+
+    height: 34px;
+    background: Palette.bg;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 6px;
+        spacing: 0px;
+
+        Text {
+            text: root.title;
+            color: Palette.text-secondary;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+
+        // 拖拽区（占满剩余空间）
+        TouchArea {
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    root.press-x = self.mouse-x;
+                    root.press-y = self.mouse-y;
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    root.drag-to(self.mouse-x - root.press-x, self.mouse-y - root.press-y);
+                }
+            }
+        }
+
+        close-btn := TouchArea {
+            width: 28px;
+            clicked => { root.close-requested(); }
+            Path {
+                width: 11px;
+                height: 11px;
+                viewbox-width: 100;
+                viewbox-height: 100;
+                stroke: close-btn.has-hover ? Palette.text-primary : Palette.text-secondary;
+                stroke-width: 1.6px;
+                MoveTo { x: 8; y: 8; }
+                LineTo { x: 92; y: 92; }
+                MoveTo { x: 92; y: 8; }
+                LineTo { x: 8; y: 92; }
+            }
+        }
+    }
+
+    // 底部分隔线
+    Rectangle {
+        x: 0;
+        y: root.height - 1px;
+        width: root.width;
+        height: 1px;
+        background: Palette.border-subtle;
+    }
+}

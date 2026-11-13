@@ -1,0 +1,25 @@
+{
+  "name": "apps-chrome-ext",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt dev",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@anchor/api-client": "workspace:*",
+    "@anchor/types": "workspace:*",
+    "@anchor/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "jsdom": "^24.0.0",
+    "vitest": "^1.6.0",
+    "wxt": "^0.19.0",
+    "typescript": "^5.4.0"
+  }
+}

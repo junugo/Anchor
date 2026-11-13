@@ -1,0 +1,135 @@
+import { Palette } from "theme.slint";
+
+// Curfew 全屏宵禁锁：T0 触发，全屏置顶，仅「强制解锁」可退出
+// 尺寸与位置由 Rust 侧按屏幕分辨率设置
+export component CurfewWindow inherits Window {
+    title: "Anchor Curfew";
+    icon: @image-url("../assets/icon.png");
+    no-frame: true;
+    always-on-top: true;
+    background: Palette.dark-bg;
+
+    in property <string> bedtime: "23:00";
+    callback unlock-requested(string);
+    callback close-requested();
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 16px;
+
+        // 月亮（两个圆叠加）
+        Rectangle {
+            height: 64px;
+            Rectangle {
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                x: (parent.width - self.width) / 2;
+                background: Palette.dark-text;
+            }
+            Rectangle {
+                width: 40px;
+                height: 40px;
+                border-radius: 20px;
+                x: (parent.width - self.width) / 2 + 16px;
+                y: -8px;
+                background: Palette.dark-bg;
+            }
+        }
+
+        Text {
+            text: "就寝时间";
+            font-size: 28px;
+            font-weight: 600;
+            color: Palette.dark-text;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.bedtime;
+            font-size: 18px;
+            color: Palette.dark-text-secondary;
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            height: 2px;
+            Rectangle {
+                width: 48px;
+                height: 2px;
+                x: (parent.width - self.width) / 2;
+                background: Palette.dark-border;
+            }
+        }
+
+        Text {
+            text: "电脑已进入就寝保护模式，晚安";
+            font-size: 14px;
+            color: Palette.dark-text-secondary;
+            horizontal-alignment: center;
+        }
+
+        Rectangle { height: 12px; }
+
+        // 强制解锁原因输入（必填，对齐 mobile 语义）
+        Rectangle {
+            height: 36px;
+            Rectangle {
+                width: 280px;
+                height: 36px;
+                x: (parent.width - self.width) / 2;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: reason-input.has-focus ? Palette.accent : Palette.dark-border;
+                background: #241f19;
+
+                reason-input := TextInput {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    font-size: 13px;
+                    color: Palette.dark-text;
+                    selection-background-color: Palette.accent-muted;
+                    selection-foreground-color: Palette.dark-text;
+                }
+                // 占位提示：输入框为空且未聚焦时显示
+                if reason-input.text == "" && !reason-input.has-focus: Text {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    font-size: 13px;
+                    color: Palette.dark-text-secondary;
+                    text: "记录一下原因（必填）";
+                }
+            }
+        }
+
+        Rectangle {
+            height: 34px;
+            Rectangle {
+                width: 180px;
+                height: 34px;
+                x: (parent.width - self.width) / 2;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: Palette.dark-border;
+                // 原因为空时禁用（对齐 mobile：必填才可解除）
+                background: reason-input.text == "" ? transparent : (unlock-ta.has-hover ? #2e2820 : transparent);
+                opacity: reason-input.text == "" ? 0.4 : 1.0;
+
+                unlock-ta := TouchArea {
+                    enabled: reason-input.text != "";
+                    clicked => { root.unlock-requested(reason-input.text); }
+                }
+                Text {
+                    text: "强制解锁（记录为破戒）";
+                    font-size: 13px;
+                    color: Palette.dark-text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

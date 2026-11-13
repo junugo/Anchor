@@ -1,0 +1,31 @@
+import { Palette } from "theme.slint";
+
+// Pill 倒计时浮窗：T60/T30 透明置顶 140x40，位置由设置决定（穿透由 Rust 侧 winpatch 补丁）
+export component PillWindow inherits Window {
+    title: "Anchor Pill";
+    icon: @image-url("../assets/icon.png");
+    no-frame: true;
+    always-on-top: true;
+    width: 140px;
+    height: 40px;
+    background: transparent;
+
+    in property <string> text: "";
+    in property <color> accent: Palette.accent;
+
+    Rectangle {
+        border-radius: 20px;
+        background: #1c1814ee;
+        border-width: 1.5px;
+        border-color: root.accent;
+
+        Text {
+            text: root.text;
+            color: Palette.dark-text;
+            font-size: 12px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

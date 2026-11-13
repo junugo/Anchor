@@ -1,0 +1,28 @@
+import { Palette } from "theme.slint";
+
+// Pill 位置示意窗：设置页选择倒计时位置时临时弹出，保存/取消后关闭（穿透由 Rust 侧 winpatch 补丁）
+export component PillPreviewWindow inherits Window {
+    title: "Anchor Pill 示意";
+    icon: @image-url("../assets/icon.png");
+    no-frame: true;
+    always-on-top: true;
+    width: 140px;
+    height: 40px;
+    background: transparent;
+
+    Rectangle {
+        border-radius: 20px;
+        background: #1c1814ee;
+        border-width: 1.5px;
+        border-color: Palette.accent;
+
+        Text {
+            text: "示意位置";
+            color: Palette.dark-text;
+            font-size: 12px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

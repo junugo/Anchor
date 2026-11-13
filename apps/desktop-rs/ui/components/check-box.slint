@@ -1,0 +1,47 @@
+import { Palette } from "../theme.slint";
+
+// 规范样式复选框：accent 填充 + 矢量对勾
+export component AnchorCheck inherits Rectangle {
+    in property <string> label: "";
+    in-out property <bool> checked: false;
+
+    height: 24px;
+
+    HorizontalLayout {
+        spacing: 8px;
+
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            background: root.checked ? Palette.accent : Palette.surface;
+            border-width: 1px;
+            border-color: root.checked ? Palette.accent : Palette.border;
+
+            if root.checked: Path {
+                width: 10px;
+                height: 10px;
+                x: 3px;
+                y: 3px;
+                viewbox-width: 100;
+                viewbox-height: 100;
+                stroke: #ffffff;
+                stroke-width: 1.8px;
+                MoveTo { x: 12; y: 55; }
+                LineTo { x: 42; y: 85; }
+                LineTo { x: 88; y: 15; }
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 13px;
+            color: Palette.text-primary;
+            vertical-alignment: center;
+        }
+    }
+
+    TouchArea {
+        clicked => { root.checked = !root.checked; }
+    }
+}

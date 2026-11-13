@@ -1,0 +1,25 @@
+// 设计规范 token：docs/superpowers/specs/2026-06-13-design-language.md 浅色模式 + 深色浮窗
+// 色值唯一真源：packages/ui/src/tokens/index.ts（手动同步，勿改）；
+// 状态→token 映射见 packages/utils/src/state.ts（Rust 侧托盘图标映射见 src/tray.rs::state_color）
+
+export global Palette {
+    out property <color> bg: #f5f0eb;
+    out property <color> surface: #ffffff;
+    out property <color> surface-raised: #faf7f4;
+    out property <color> border: #e0d9d0;
+    out property <color> border-subtle: #ede8e2;
+    out property <color> text-primary: #1a1410;
+    out property <color> text-secondary: #6b6560;
+    out property <color> text-disabled: #b0a89e;
+    out property <color> accent: #c0622a;
+    out property <color> accent-muted: #f0e4da;
+    out property <color> ok: #22863a;      // passive：状态符合预期
+    out property <color> soft: #b08800;    // soft：轻干预
+    out property <color> hard: #c0622a;    // hard：标准娱乐摩擦
+    out property <color> danger: #cf222e;  // curfew：宵禁/强干预
+
+    out property <color> dark-bg: #1c1814;
+    out property <color> dark-text: #f0ebe4;
+    out property <color> dark-text-secondary: #9e978e;
+    out property <color> dark-border: #3a3228;
+}

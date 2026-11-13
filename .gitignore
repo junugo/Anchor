@@ -1,0 +1,89 @@
+# CodeStable / Claude Code runtime
+.claude/
+
+node_modules/
+.turbo/
+dist/
+out/
+.next/
+.superpowers/
+*.tsbuildinfo
+
+# SQLite (user data — never commit)
+*.db
+*.db-wal
+*.db-shm
+
+# Environment (secrets)
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+
+# Cache
+.eslintcache
+.stylelintcache
+.cache/
+.parcel-cache/
+
+# Test coverage
+coverage/
+playwright-report/
+test-results/
+
+# Build outputs (mobile)
+*.apk
+*.aab
+*.ipa
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/ios/build/
+apps/mobile/ios/Pods/
+
+# Build outputs (desktop-rs)
+*.exe
+*.dmg
+*.app
+apps/desktop-rs/target/
+
+# Chrome Extension (wxt)
+apps/chrome-ext/.output/
+
+# VS Code Extension
+apps/vscode-ext/dist/
+
+# Expo
+.expo/
+
+# Deployment
+.vercel/
+.netlify/
+
+# Android signing (local debug keystore — never commit)
+apps/mobile/android/app/debug.keystore
+
+# Local AI-tool workspaces (machine-local, never commit)
+.codestable/
+.trae/
+.zcode/
+
+# WXT generated types
+apps/chrome-ext/.wxt/
+
+# Android local SDK path
+apps/mobile/android/local.properties
+
+# Local DB scratch scripts
+apps/web/_*.mjs

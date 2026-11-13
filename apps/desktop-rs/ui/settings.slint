@@ -1,0 +1,201 @@
+import { Palette } from "theme.slint";
+import { TitleBar } from "components/title-bar.slint";
+import { AnchorButton } from "components/button.slint";
+import { AnchorCheck } from "components/check-box.slint";
+
+// 设置窗口：仅桌面端自身设置（服务器决策项在 Web 端管理）
+export component SettingsWindow inherits Window {
+    title: "Anchor 设置";
+    icon: @image-url("../assets/icon.png");
+    no-frame: true;
+    width: 400px;
+    height: 560px;
+    background: transparent;
+
+    in-out property <string> server-url: "";
+    in-out property <string> data-key: "";
+    in-out property <bool> autostart: true;
+    in-out property <bool> tracking-enabled: true;
+    in-out property <bool> notifications-enabled: true;
+    // pill 位置索引：0左上 1中上 2右上 3左下 4右下
+    in-out property <int> pill-position: 4;
+    in property <bool> saved: false;
+
+    callback drag-to(length, length);
+    callback close-requested();
+    callback save-clicked();
+    // 倒计时位置变更：临时弹出示意窗预览（保存/取消后关闭）
+    callback position-preview-changed(int);
+
+    Rectangle {
+        border-radius: 8px;
+        clip: true;
+        background: Palette.bg;
+        border-width: 1px;
+        border-color: Palette.border;
+
+        VerticalLayout {
+            padding: 0px;
+            spacing: 0px;
+
+            TitleBar {
+                title: "设置";
+                drag-to(dx, dy) => { root.drag-to(dx, dy); }
+                close-requested => { root.close-requested(); }
+            }
+
+            VerticalLayout {
+                padding: 16px;
+                padding-top: 12px;
+                spacing: 10px;
+
+                Text {
+                    text: "设置";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: Palette.text-primary;
+                }
+                Text {
+                    text: "桌面端自身设置；宵禁与服务器决策在 Web 端管理";
+                    font-size: 12px;
+                    color: Palette.text-secondary;
+                }
+
+                Rectangle {
+                    background: Palette.surface;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: Palette.border;
+
+                    VerticalLayout {
+                        padding: 12px;
+                        spacing: 10px;
+
+                        Text {
+                            text: "服务器地址";
+                            font-size: 13px;
+                            color: Palette.text-primary;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            border-radius: 6px;
+                            background: Palette.surface;
+                            border-width: 1px;
+                            border-color: url-input.has-focus ? Palette.accent : Palette.border;
+
+                            url-input := TextInput {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                font-size: 13px;
+                                color: Palette.text-primary;
+                                selection-background-color: Palette.accent-muted;
+                                selection-foreground-color: Palette.text-primary;
+                                text <=> root.server-url;
+                            }
+                        }
+
+                        Text {
+                            text: "数据密钥";
+                            font-size: 13px;
+                            color: Palette.text-primary;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            border-radius: 6px;
+                            background: Palette.surface;
+                            border-width: 1px;
+                            border-color: key-input.has-focus ? Palette.accent : Palette.border;
+
+                            key-input := TextInput {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                font-size: 13px;
+                                color: Palette.text-primary;
+                                selection-background-color: Palette.accent-muted;
+                                selection-foreground-color: Palette.text-primary;
+                                text <=> root.data-key;
+                            }
+                        }
+
+                        AnchorCheck {
+                            label: "开机自启";
+                            checked <=> root.autostart;
+                        }
+                        AnchorCheck {
+                            label: "窗口焦点追踪";
+                            checked <=> root.tracking-enabled;
+                        }
+                        AnchorCheck {
+                            label: "桌面通知";
+                            checked <=> root.notifications-enabled;
+                        }
+
+                        Text {
+                            text: "倒计时位置";
+                            font-size: 13px;
+                            color: Palette.text-primary;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            height: 28px;
+
+                            for label[i] in ["左上", "中上", "右上", "左下", "右下"]: Rectangle {
+                                horizontal-stretch: 1;
+                                border-radius: 6px;
+                                background: root.pill-position == i ? Palette.accent-muted : Palette.bg;
+                                border-width: 1px;
+                                border-color: root.pill-position == i ? Palette.accent : Palette.border;
+
+                                Text {
+                                    text: label;
+                                    font-size: 12px;
+                                    color: root.pill-position == i ? Palette.accent : Palette.text-secondary;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                TouchArea {
+                                    clicked => {
+                                        root.pill-position = i;
+                                        root.position-preview-changed(i);
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "追踪开关变更约 30s 内生效；服务器地址/密钥变更立即重连。密钥留空表示使用内置开发密钥（仅限本地开发）";
+                            font-size: 11px;
+                            color: Palette.text-disabled;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    height: 30px;
+
+                    if root.saved: Text {
+                        text: "已保存";
+                        font-size: 12px;
+                        color: Palette.ok;
+                        vertical-alignment: center;
+                    }
+                    AnchorButton {
+                        label: "保存";
+                        primary: true;
+                        clicked => { root.save-clicked(); }
+                    }
+                }
+            }
+        }
+    }
+}
