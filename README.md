@@ -1,6 +1,22 @@
-# Anchor
+<div align="center">
+  <img src="icon/icon-rounded.svg" width="96" alt="Anchor logo" />
+  <h1>Anchor</h1>
+  <p><b>生活节律重建系统</b> —— 多端感知 · 统一推断 · 温和干预</p>
+
+  <a href="https://github.com/junugo/Anchor/releases"><img src="https://img.shields.io/github/v/release/junugo/Anchor?style=flat-square&logo=github" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/junugo/Anchor?style=flat-square" alt="License: MIT" /></a>
+  <a href="https://github.com/junugo/Anchor/commits"><img src="https://img.shields.io/github/last-commit/junugo/Anchor?style=flat-square" alt="Last commit" /></a>
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/Chrome-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome" />
+  <img src="https://img.shields.io/badge/VS%20Code-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code" />
+</div>
+
+---
 
 **English intro** — Anchor is a self-hosted rhythm-reconstruction system for independent workers. Multiple lightweight clients (desktop, Android, Chrome, VS Code) sense behavior and upload it encrypted to your own server; the server infers your state (working / entertaining / resting / dissociating / sleeping / away) and gently nudges you back to your intended rhythm — with a sunset curfew, dissociation prevention, and a warm, non-judgmental AI companion. Single-user by design, no telemetry, your data never leaves your devices.
+
+> 📘 **不是开发者？** 直接看 [《Anchor 使用指南》](docs/USER_GUIDE.md) —— 从安装到日常使用，零代码背景也能跟着做完。
 
 ---
 
@@ -11,18 +27,18 @@ Anchor 是**生活节律重建系统**：多端行为感知 → 服务器统一�
 - **隐私优先**：上行行为数据 AES-256-GCM 加密，密钥由你持有（`ANCHOR_DATA_KEY`）
 - **干预分级**：状态符合预期时系统沉默；偏差越大干预越强（静默记录 → 柔和提醒 → 标准娱乐摩擦 → 硬宵禁）
 
-## 功能一览
+## ✨ 功能一览
 
 | 模块 | 说明 |
 |------|------|
-| 状态推断引擎 | 打分制 + AI 仲裁（DeepSeek），5 分钟完整 tick + 1 分钟轻量 tick |
-| 日落/宵禁 | T-60 → T0 渐进式就寝引导，T0 全屏灰屏强制执行，睡眠状态机 |
-| 日程哨兵 | 上学/工作时段无真实交互 → 自动 away，不推断、不干预、不写日志 |
-| AI 数字室友 | 中文对话（≤80 字，不评判），每日维护、日记分类、每周分析 |
-| 时间轴 | 日/周状态分段、事件流水、历史回放 |
-| 多端采集 | Windows 焦点追踪、Android 前台/解锁、Chrome 浏览、VS Code 键入 |
+| 🧠 状态推断引擎 | 打分制 + AI 仲裁（DeepSeek），5 分钟完整 tick + 1 分钟轻量 tick |
+| 🌇 日落/宵禁 | T-60 → T0 渐进式就寝引导，T0 全屏灰屏强制执行，睡眠状态机 |
+| 🛡️ 日程哨兵 | 上学/工作时段无真实交互 → 自动 away，不推断、不干预、不写日志 |
+| 💬 AI 数字室友 | 中文对话（≤80 字，不评判），每日维护、日记分类、每周分析 |
+| 🕘 时间轴 | 日/周状态分段、事件流水、历史回放 |
+| 📱 多端采集 | Windows 焦点追踪、Android 前台/解锁、Chrome 浏览、VS Code 键入 |
 
-## 架构
+## 🧩 架构
 
 ```
 ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
@@ -44,7 +60,7 @@ Anchor 是**生活节律重建系统**：多端行为感知 → 服务器统一�
    通知/浮窗    宵禁灰屏     浏览器拦截    状态栏着色
 ```
 
-## Monorepo 结构
+## 📁 Monorepo 结构
 
 ```
 apps/
@@ -61,7 +77,7 @@ packages/
 └── utils/        # 共享工具（含上行加密）
 ```
 
-## 快速开始
+## 🚀 快速开始
 
 ### 1. 启动服务器
 
@@ -78,14 +94,16 @@ pnpm web:dev        # http://localhost:4000
 
 | 客户端 | 构建 | 配置入口 |
 |--------|------|----------|
-| Desktop | `cd apps/desktop-rs && cargo run --release` | 托盘菜单 → 设置 |
-| Mobile | `cd apps/mobile/android && ./gradlew.bat :app:assembleDebug`，`adb install app/build/outputs/apk/debug/app-debug.apk` | 设置页 → 服务器连接（USB 调试可 `adb reverse tcp:4000 tcp:4000`） |
-| Chrome | `pnpm chrome:build` 后加载 `apps/chrome-ext/.output/chrome-mv3` | 扩展弹窗 → 齿轮 → 选项页 |
-| VS Code | `cd apps/vscode-ext && pnpm build`，F5 调试 | 设置 → 扩展 → Anchor（`anchor.serverUrl` / `anchor.dataKey`） |
+| 💻 Desktop | `cd apps/desktop-rs && cargo run --release` | 托盘菜单 → 设置 |
+| 📱 Mobile | `cd apps/mobile/android && ./gradlew.bat :app:assembleDebug`，`adb install app/build/outputs/apk/debug/app-debug.apk` | 设置页 → 服务器连接（USB 调试可 `adb reverse tcp:4000 tcp:4000`） |
+| 🌐 Chrome | `pnpm chrome:build` 后加载 `apps/chrome-ext/.output/chrome-mv3` | 扩展弹窗 → 齿轮 → 选项页 |
+| 📝 VS Code | `cd apps/vscode-ext && pnpm build`，F5 调试 | 设置 → 扩展 → Anchor（`anchor.serverUrl` / `anchor.dataKey`） |
+
+不想自己编译？ release 页面提供四端现成的安装包，见 [使用指南](docs/USER_GUIDE.md)。
 
 密钥指纹用于核对客户端与服务器密钥是否一致（服务器启动日志打印 `[ws] 数据密钥指纹: <8位>`）。
 
-## 配置
+## ⚙️ 配置
 
 见 [apps/web/.env.example](apps/web/.env.example)。核心项：
 
@@ -94,7 +112,7 @@ pnpm web:dev        # http://localhost:4000
 - `ANCHOR_TZ` — 用户时区，所有作息时钟按时区计算（默认 `Asia/Shanghai`）
 - `ANCHOR_DB_PATH` — SQLite 路径（默认 `~/.anchor/anchor.db`）
 
-## 测试
+## 🧪 测试
 
 ```bash
 pnpm test          # web (tsx --test) + 各包 (vitest)
@@ -102,13 +120,14 @@ cd apps/desktop-rs && cargo test
 cd apps/mobile/android && ./gradlew.bat :app:testDebugUnitTest
 ```
 
-## 文档
+## 📖 文档
 
-- [PROJECT_CHARTER.md](docs/PROJECT_CHARTER.md) — 项目章程与北极星
-- [docs/api.md](docs/api.md) — HTTP / WebSocket API
-- [docs/superpowers/specs/](docs/superpowers/specs/) — 设计规范与各模块设计
-- [AGENTS.md](AGENTS.md) — 架构原则、自托管部署与运维笔记
+- 📘 [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — **非开发者使用指南**（安装 → 配置 → 日常使用 → FAQ）
+- 🧭 [PROJECT_CHARTER.md](docs/PROJECT_CHARTER.md) — 项目章程与北极星
+- 🔌 [docs/api.md](docs/api.md) — HTTP / WebSocket API
+- 🛠️ [docs/superpowers/specs/](docs/superpowers/specs/) — 设计规范与各模块设计
+- 🤖 [AGENTS.md](AGENTS.md) — 架构原则、自托管部署与运维笔记
 
-## License
+## 📄 License
 
 [MIT](LICENSE)
