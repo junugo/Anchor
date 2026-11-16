@@ -229,7 +229,7 @@ test('capture-response with wrong prompt_id is ignored', async () => {
     client.sent.length = 0
 
     await anchor.triggerIntentCapture(db)
-    await new Promise(r => setTimeout(r, 0))
+    await untilMessage(client.sent, m => m['type'] === 'intent:capture')
     anchor.handleIntentCaptureResponse({ prompt_id: 'intent-nonexistent', action: 'skip' })
     await new Promise(r => setTimeout(r, 0))
     assert.equal(client.sent.find(m => m['type'] === 'intent:dismiss'), undefined)
@@ -299,8 +299,7 @@ test('auto_skip does not resolve coordinator (only closes local popup)', async (
     client.sent.length = 0
 
     await anchor.triggerIntentCapture(db)
-    await new Promise(r => setTimeout(r, 0))
-    const capture = client.sent.find(m => m['type'] === 'intent:capture')
+    const capture = await untilMessage(client.sent, m => m['type'] === 'intent:capture')
     const promptId = capture!['prompt_id'] as string
 
     // auto_skip 只关自己：不广播 dismiss，协调器仍活跃
@@ -310,8 +309,7 @@ test('auto_skip does not resolve coordinator (only closes local popup)', async (
 
     // 协调器仍可被后续 skip 正常 resolve
     anchor.handleIntentCaptureResponse({ prompt_id: promptId, action: 'skip' })
-    await new Promise(r => setTimeout(r, 0))
-    const dismiss = client.sent.find(m => m['type'] === 'intent:dismiss')
+    const dismiss = await untilMessage(client.sent, m => m['type'] === 'intent:dismiss')
     assert.ok(dismiss, 'auto_skip 后 skip 仍应广播 dismiss')
     assert.equal(dismiss!['reason'], 'skipped')
   } finally {
@@ -332,21 +330,18 @@ test('intent input take-over broadcasts typing and keeps late submit valid', asy
     client.sent.length = 0
 
     await anchor.triggerIntentCapture(db)
-    await new Promise(r => setTimeout(r, 0))
-    const capture = client.sent.find(m => m['type'] === 'intent:capture')
+    const capture = await untilMessage(client.sent, m => m['type'] === 'intent:capture')
     const promptId = capture!['prompt_id'] as string
 
     // 开始输入：广播 typing 通知其他端关闭
     anchor.handleIntentInput(promptId)
-    await new Promise(r => setTimeout(r, 0))
-    const typing = client.sent.find(m => m['type'] === 'intent:typing')
+    const typing = await untilMessage(client.sent, m => m['type'] === 'intent:typing')
     assert.ok(typing, '接管后应广播 intent:typing')
     assert.equal(typing!['prompt_id'], promptId)
 
     // 接管后提交（answered 语义）仍然有效
     anchor.notifyIntentSubmitted(promptId)
-    await new Promise(r => setTimeout(r, 0))
-    const dismiss = client.sent.find(m => m['type'] === 'intent:dismiss')
+    const dismiss = await untilMessage(client.sent, m => m['type'] === 'intent:dismiss')
     assert.ok(dismiss, '接管后提交应广播 dismiss answered')
     assert.equal(dismiss!['reason'], 'answered')
     assert.equal(dismiss!['prompt_id'], promptId)
