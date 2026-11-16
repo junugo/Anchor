@@ -3,6 +3,7 @@ import { aiConversationSummaries, chatMessages, userMemory } from '@anchor/db'
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { extractEmotionalSignal } from './emotional-signal'
 import { getUserDateStr, userZonedTimeToUtc } from '../time/user-time'
+import { chatCompletion, resolveAiConfig } from './provider'
 
 export interface SummaryRange {
   start?: number
@@ -49,24 +50,19 @@ export async function generateConversationSummary(db: Db, opts: SummaryRange = {
 
   if (messages.length < 3) return null
 
-  const apiKey = process.env['DEEPSEEK_API_KEY']
-  if (!apiKey) return null
+  const cfg = resolveAiConfig()
+  if (!cfg) return null
 
   const transcript = messages.map(m => `${m.role === 'user' ? '用户' : 'Anchor'}：${m.content}`).join('\n')
   const prompt = `请阅读以下 Anchor 对话，生成一段不超过 200 字的中文摘要。重点关注：用户情绪状态、主要话题、是否出现解离/疲惫/饥饿/睡眠相关线索，以及 Anchor 的干预是否有效。不要评价用户，不要提出新建议。\n\n${transcript}`
 
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: '你是 Anchor 的对话摘要器，只输出简洁中文摘要。' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 300,
-      temperature: 0.3,
-    }),
+  const res = await chatCompletion(cfg, {
+    messages: [
+      { role: 'system', content: '你是 Anchor 的对话摘要器，只输出简洁中文摘要。' },
+      { role: 'user', content: prompt },
+    ],
+    max_tokens: 300,
+    temperature: 0.3,
     signal: AbortSignal.timeout(10_000),
   })
 

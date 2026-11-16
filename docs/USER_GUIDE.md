@@ -72,7 +72,7 @@ pnpm install
 
 | 配置项 | 填什么 |
 |--------|--------|
-| `DEEPSEEK_API_KEY` | 去 [DeepSeek 开放平台](https://platform.deepseek.com/) 免费申请。没有它系统照常记录和推断，只是 AI 聊天、日记分类不可用 |
+| `ANCHOR_AI_API_KEY` | AI 密钥（BYOK，自带密钥）。默认走 [DeepSeek 开放平台](https://platform.deepseek.com/) 的 `deepseek-chat`；想换模型再配 `ANCHOR_AI_MODEL` 和 `ANCHOR_AI_BASE_URL`（兼容 OpenAI / Moonshot / 本地 Ollama 等任意 OpenAI 兼容端点）。没有它系统照常记录和推断，只是 AI 聊天、日记分类不可用 |
 | `ANCHOR_DATA_KEY` | **自己编一串又长又随机的密码**（建议 32 位以上），这是行为数据的加密密钥，所有客户端都要填同一个。**妥善保存，丢失后旧数据无法解开** |
 | `ANCHOR_TZ` | 你的时区，国内用户保持默认 `Asia/Shanghai` 即可 |
 
@@ -160,8 +160,8 @@ pnpm web:start
 **状态判断错了怎么办？**
 偶发误判很正常，它会结合后续信号自动修正。如果某类应用总被认错，到「应用 / 网站」页调整分类即可。日记页的确认也在帮它校准。
 
-**没有 DEEPSEEK_API_KEY 能用吗？**
-能。状态记录、时间轴、宵禁这些核心功能不依赖 AI；只是 AI 聊天、日记分类、每周分析会缺席。
+**没有 AI 密钥能用吗？**
+能。状态记录、时间轴、宵禁这些核心功能不依赖 AI；只是 AI 聊天、日记分类、每周分析会缺席。`ANCHOR_AI_API_KEY` 支持 BYOK——DeepSeek、OpenAI、Moonshot、本地 Ollama 等任意 OpenAI 兼容端点都可以。
 
 **FocusLayer 是什么？装的时候看到了这个词。**
 一个可选的增强组件，没有它 Anchor 的所有核心功能照常工作，可以无视。

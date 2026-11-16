@@ -36,12 +36,12 @@ test('buildEventsOrFallback falls back to candidate_label when logs empty', () =
 })
 
 test('classifyDiaryEntry returns null when no API key (entry stays pending)', async () => {
-  const saved = process.env['DEEPSEEK_API_KEY']
-  delete process.env['DEEPSEEK_API_KEY']
+  const saved = process.env['ANCHOR_AI_API_KEY']
+  delete process.env['ANCHOR_AI_API_KEY']
   try {
     const result = await classifyDiaryEntry([{ event_type: 'url_visit', domain: 'douyin.com', at: '22:10' }])
     assert.equal(result, null)
   } finally {
-    if (saved !== undefined) process.env['DEEPSEEK_API_KEY'] = saved
+    if (saved !== undefined) process.env['ANCHOR_AI_API_KEY'] = saved
   }
 })

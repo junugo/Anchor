@@ -1,3 +1,5 @@
+import { chatCompletion, resolveAiConfig } from './provider'
+
 export const DIARY_LABELS = ['active_rest', 'attention_break', 'dissociation'] as const
 export type DiaryLabel = typeof DIARY_LABELS[number]
 
@@ -36,16 +38,12 @@ export function buildEventsOrFallback(
 // 批量分类当日解离事件，≤10 条/日；每条 10s 超时，失败返回 null（保持待确认，等用户手动标记）
 export async function classifyDiaryEntry(events: DiaryEvent[]): Promise<DiaryLabel | null> {
   try {
-    const apiKey = process.env['DEEPSEEK_API_KEY']
-    if (!apiKey) return null
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: buildClassifyPrompt(events) }],
-        max_tokens: 20, temperature: 0.3,
-      }),
+    const cfg = resolveAiConfig()
+    if (!cfg) return null
+    const resp = await chatCompletion(cfg, {
+      messages: [{ role: 'user', content: buildClassifyPrompt(events) }],
+      max_tokens: 20,
+      temperature: 0.3,
       signal: AbortSignal.timeout(10_000),
     })
     const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> }

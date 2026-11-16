@@ -1,5 +1,6 @@
 import type { UserState, InterventionLevel } from '@anchor/types'
 import { nowContext, STATE_ZH, LEVEL_TONE, NOTIFICATION_RULE } from '../ai/promptUtils'
+import { chatCompletion, resolveAiConfig } from '../ai/provider'
 
 // 各状态的兜底文案（AI 调用失败或禁语过滤时使用）
 export const FALLBACK_MESSAGES: Record<UserState, string> = {
@@ -39,20 +40,15 @@ export function sanitizeMessage(raw: string, state: UserState = 'transitioning')
 // 实际生成：10s 超时，失败回退 fallback
 export async function generateCopy(state: UserState, level: InterventionLevel): Promise<string> {
   try {
-    const apiKey = process.env['DEEPSEEK_API_KEY']
-    if (!apiKey) return FALLBACK_MESSAGES[state]
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: buildCopyPrompt(state, level) }],
-        max_tokens: 120,   // 文案 ≤80 字，预留余量
-        temperature: 0.85, // 文案需多样性，高于仲裁的 0.3
-      }),
+    const cfg = resolveAiConfig()
+    if (!cfg) return FALLBACK_MESSAGES[state]
+    const resp = await chatCompletion(cfg, {
+      messages: [{ role: 'user', content: buildCopyPrompt(state, level) }],
+      max_tokens: 120,   // 文案 ≤80 字，预留余量
+      temperature: 0.85, // 文案需多样性，高于仲裁的 0.3
       signal: AbortSignal.timeout(10_000),
     })
-    if (!resp.ok) throw new Error(`DeepSeek API error: ${resp.status}`)
+    if (!resp.ok) throw new Error(`AI provider error: ${resp.status}`)
     const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> }
     const content = data.choices?.[0]?.message?.content ?? ''
     return sanitizeMessage(content, state)

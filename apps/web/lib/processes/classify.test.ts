@@ -21,7 +21,7 @@ test('isIgnoredProcess filters system noise processes', () => {
 test('classifyProcess inserts new process and falls back without API key', async () => {
   const { dir, db } = tempDb('proc-classify')
   try {
-    // 测试环境无 DEEPSEEK_API_KEY：走 fallback（Windows 进程宁缺毋滥，两者均 false）
+    // 测试环境无 ANCHOR_AI_API_KEY：走 fallback（Windows 进程宁缺毋滥，两者均 false）
     const result = await classifyProcess(db, 'Code.EXE')
     assert.ok(result)
     assert.equal(result.process_name, 'code.exe') // 小写归一

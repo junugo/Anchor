@@ -1,5 +1,6 @@
 import type { InferenceResult, UserState } from '@anchor/types'
 import { nowContext } from '../ai/promptUtils'
+import { chatCompletion, resolveAiConfig } from '../ai/provider'
 
 const VALID_STATES: UserState[] = ['working', 'entertaining', 'dissociating', 'resting', 'transitioning']
 
@@ -41,7 +42,7 @@ export function arbiterFallback(original: InferenceResult): InferenceResult {
   return original
 }
 
-// 实际调用 DeepSeek，3s 超时 + 频率/缓存保护
+// 实际调用 AI 提供商，3s 超时 + 频率/缓存保护
 let _lastCallMinute = -1
 let _callsThisMinute = 0
 const _cache = new Map<string, { verdict: ArbiterVerdict; at: number }>()
@@ -61,16 +62,12 @@ export async function arbitrate(r: InferenceResult, nowMs: number, snapshotHash:
   _callsThisMinute += 1
 
   try {
-    const apiKey = process.env['DEEPSEEK_API_KEY']
-    if (!apiKey) return arbiterFallback(r)
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: buildArbiterPrompt(r) }],
-        max_tokens: 120, temperature: 0.3,
-      }),
+    const cfg = resolveAiConfig()
+    if (!cfg) return arbiterFallback(r)
+    const resp = await chatCompletion(cfg, {
+      messages: [{ role: 'user', content: buildArbiterPrompt(r) }],
+      max_tokens: 120,
+      temperature: 0.3,
       signal: AbortSignal.timeout(3_000),
     })
     const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> }

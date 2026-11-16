@@ -10,6 +10,7 @@ import {
 } from '@anchor/db'
 import { dbSeverityToLevel } from './roleCard'
 import { nowContext } from './promptUtils'
+import { chatCompletion, resolveAiConfig } from './provider'
 
 /** 10 分钟无消息则视为新会话 */
 export const SESSION_TIMEOUT_S = 10 * 60
@@ -103,9 +104,9 @@ export async function generateAndSaveOpeningMessage(
   db: Db,
   sessionId: string,
 ): Promise<string> {
-  const apiKey = process.env['DEEPSEEK_API_KEY']
+  const cfg = resolveAiConfig()
   const fallback = '我在这里。'
-  if (!apiKey) return _writeOpening(db, sessionId, fallback)
+  if (!cfg) return _writeOpening(db, sessionId, fallback)
 
   try {
     const ctx = db
@@ -135,18 +136,10 @@ ${summaries.length > 0 ? `[最近对话]\n${summaries.join('\n')}` : ''}
 
 20-50 字，语气像室友，不像机器人。`
 
-    const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 100,
-        temperature: 0.95,
-      }),
+    const res = await chatCompletion(cfg, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 100,
+      temperature: 0.95,
       signal: AbortSignal.timeout(8000),
     })
 

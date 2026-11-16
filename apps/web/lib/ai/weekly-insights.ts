@@ -1,4 +1,5 @@
 import type { Db } from '@anchor/db'
+import { chatCompletion, resolveAiConfig } from './provider'
 
 interface WeeklyMetrics {
   avgDeepWorkMin: number
@@ -21,16 +22,12 @@ export function buildInsightsPrompt(m: WeeklyMetrics): string {
 // 生成 weekly_insights 并写入 user_settings；10s 超时，失败静默跳过
 export async function generateWeeklyInsights(db: Db, m: WeeklyMetrics, updatedAt: number): Promise<void> {
   try {
-    const apiKey = process.env['DEEPSEEK_API_KEY']
-    if (!apiKey) return
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: buildInsightsPrompt(m) }],
-        max_tokens: 300, temperature: 0.8,
-      }),
+    const cfg = resolveAiConfig()
+    if (!cfg) return
+    const resp = await chatCompletion(cfg, {
+      messages: [{ role: 'user', content: buildInsightsPrompt(m) }],
+      max_tokens: 300,
+      temperature: 0.8,
       signal: AbortSignal.timeout(10_000),
     })
     const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> }

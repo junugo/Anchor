@@ -1,6 +1,7 @@
 import type { Db } from '@anchor/db'
 import { buildAnchorRoleCard } from './roleCard'
 import { localDateStr, nowContext, formatBedtime, NOTIFICATION_RULE } from './promptUtils'
+import { chatCompletion, resolveAiConfig } from './provider'
 
 export type ReminderScene = 'entertainment' | 'dissociation' | 'bedtime' | 'wakeup' | 'check_in' | 'rescue' | 'mobile_distraction'
 
@@ -36,25 +37,20 @@ export async function triggerAiReminder(
   const prompt = buildPrompt(scene, summary, { ...ctx, targetBedtime })
   const roleCard = buildAnchorRoleCard(db)
 
-  const apiKey = process.env['DEEPSEEK_API_KEY']
-  if (!apiKey) {
-    console.warn('[AI] DEEPSEEK_API_KEY not set, skipping reminder')
+  const aiCfg = resolveAiConfig()
+  if (!aiCfg) {
+    console.warn('[AI] ANCHOR_AI_API_KEY not set, skipping reminder')
     return
   }
 
   try {
-    const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: roleCard },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 120,
-        temperature: 0.85,
-      }),
+    const res = await chatCompletion(aiCfg, {
+      messages: [
+        { role: 'system', content: roleCard },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 120,
+      temperature: 0.85,
       signal: AbortSignal.timeout(10_000),
     })
 

@@ -6,10 +6,10 @@ import { saveChatMessage } from './chatHistory'
 import { generateConversationSummary } from './summary'
 import { tempDbPath } from '../testUtils'
 
-test('generateConversationSummary writes a DeepSeek summary for a message range', async () => {
+test('generateConversationSummary writes an AI summary for a message range', async () => {
   const { dir, dbPath } = tempDbPath('summary')
   const originalFetch = globalThis.fetch
-  const originalKey = process.env['DEEPSEEK_API_KEY']
+  const originalKey = process.env['ANCHOR_AI_API_KEY']
   const db = createDb(dbPath)
 
   try {
@@ -17,7 +17,7 @@ test('generateConversationSummary writes a DeepSeek summary for a message range'
     saveChatMessage(db, 'assistant', '先看看身体有没有累。', 20)
     saveChatMessage(db, 'user', '有点麻木，也有点饿', 30)
 
-    process.env['DEEPSEEK_API_KEY'] = 'test-key'
+    process.env['ANCHOR_AI_API_KEY'] = 'test-key'
     globalThis.fetch = async () => new Response(JSON.stringify({
       choices: [{ message: { content: '用户夜间出现刷手机停不下来的状态，表达麻木和饥饿。' } }],
     }), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -30,8 +30,8 @@ test('generateConversationSummary writes a DeepSeek summary for a message range'
     assert.equal(rows[0]!.summary, result)
   } finally {
     globalThis.fetch = originalFetch
-    if (originalKey == null) delete process.env['DEEPSEEK_API_KEY']
-    else process.env['DEEPSEEK_API_KEY'] = originalKey
+    if (originalKey == null) delete process.env['ANCHOR_AI_API_KEY']
+    else process.env['ANCHOR_AI_API_KEY'] = originalKey
     closeDb(db)
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -40,7 +40,7 @@ test('generateConversationSummary writes a DeepSeek summary for a message range'
 test('generateConversationSummary writes emotional_signal to userMemory', async () => {
   const { dir, dbPath } = tempDbPath('summary-signal')
   const originalFetch = globalThis.fetch
-  const originalKey = process.env['DEEPSEEK_API_KEY']
+  const originalKey = process.env['ANCHOR_AI_API_KEY']
   const db = createDb(dbPath)
 
   try {
@@ -48,7 +48,7 @@ test('generateConversationSummary writes emotional_signal to userMemory', async 
     saveChatMessage(db, 'assistant', '听起来你现在压力很大，先喝点水。', 20)
     saveChatMessage(db, 'user', '嗯，就是很烦', 30)
 
-    process.env['DEEPSEEK_API_KEY'] = 'test-key'
+    process.env['ANCHOR_AI_API_KEY'] = 'test-key'
     globalThis.fetch = async () => new Response(JSON.stringify({
       choices: [{ message: { content: '用户情绪低落，表达疲惫和焦虑。' } }],
     }), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -64,8 +64,8 @@ test('generateConversationSummary writes emotional_signal to userMemory', async 
     assert.ok(typeof parsed.recordedAt === 'number')
   } finally {
     globalThis.fetch = originalFetch
-    if (originalKey == null) delete process.env['DEEPSEEK_API_KEY']
-    else process.env['DEEPSEEK_API_KEY'] = originalKey
+    if (originalKey == null) delete process.env['ANCHOR_AI_API_KEY']
+    else process.env['ANCHOR_AI_API_KEY'] = originalKey
     closeDb(db)
     fs.rmSync(dir, { recursive: true, force: true })
   }

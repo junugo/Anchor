@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db'
 import { buildAnchorRoleCard, dbSeverityToLevel } from '@/lib/ai/roleCard'
 import type { SeverityLevel, ChatTrigger } from '@/lib/ai/roleCard'
 import { extractAssistantDeltaFromSseLine, getLastUserMessage, getSessionChatMessages, saveChatMessage, type InputChatMessage } from '@/lib/ai/chatHistory'
+import { chatCompletion, resolveAiConfig } from '@/lib/ai/provider'
 import { chatSessions, userLivingContext } from '@anchor/db'
 import { eq } from 'drizzle-orm'
 import { nowContext } from '@/lib/ai/promptUtils'
@@ -28,9 +29,9 @@ export async function POST(req: NextRequest) {
   }
   const sessionId = body.sessionId
 
-  const apiKey = process.env['DEEPSEEK_API_KEY']
-  if (!apiKey) {
-    return NextResponse.json({ error: 'DEEPSEEK_API_KEY not configured' }, { status: 503 })
+  const cfg = resolveAiConfig()
+  if (!cfg) {
+    return NextResponse.json({ error: 'AI 未配置：请设置 ANCHOR_AI_API_KEY 环境变量' }, { status: 503 })
   }
 
   const db = getDb()
@@ -77,17 +78,14 @@ export async function POST(req: NextRequest) {
     ...history.map(m => ({ role: m.role, content: m.content })),
   ]
 
-  const upstreamRes = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model: 'deepseek-chat', messages, stream: true, temperature: 0.85 }),
+  const upstreamRes = await chatCompletion(cfg, {
+    messages,
+    temperature: 0.85,
+    extra: { stream: true },
   })
 
   if (!upstreamRes.ok || !upstreamRes.body) {
-    return NextResponse.json({ error: 'DeepSeek API error' }, { status: upstreamRes.status })
+    return NextResponse.json({ error: 'AI provider error' }, { status: upstreamRes.status })
   }
 
   let assistantText = ''

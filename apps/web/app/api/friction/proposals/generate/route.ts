@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db'
 import { frictionEvents, frictionFormProposals } from '@anchor/db'
 import { sql } from 'drizzle-orm'
 import { FRICTION_FORMS, type FrictionForm } from '@/lib/habituation/forms'
+import { chatCompletion, resolveAiConfig } from '@/lib/ai/provider'
 
 const VALID_CATEGORIES = ['entertainment_app_launch', 'curfew_bypass', 'attention_drift'] as const
 const VALID_CLIENT_ACTIONS = [
@@ -25,13 +26,13 @@ interface AiProposedForm {
  * 分析习惯化数据，由 AI 提议一个新的摩擦形式。
  *
  * - 收集各摩擦形式的绕过统计，识别哪些类别的所有形式都被习惯化了
- * - 调用 DeepSeek 生成一个针对该类别的新形式提议
+ * - 调用 AI 提供商生成一个针对该类别的新形式提议
  * - 将提议以 pending 状态写入 DB，等待用户审查
  */
 export async function POST() {
-  const apiKey = process.env['DEEPSEEK_API_KEY']
-  if (!apiKey) {
-    return NextResponse.json({ error: 'DEEPSEEK_API_KEY 未配置' }, { status: 503 })
+  const cfg = resolveAiConfig()
+  if (!cfg) {
+    return NextResponse.json({ error: 'AI 未配置：请设置 ANCHOR_AI_API_KEY 环境变量' }, { status: 503 })
   }
 
   const db = getDb()
@@ -105,23 +106,15 @@ ${VALID_CLIENT_ACTIONS.join(', ')}
 
   let proposedForm: AiProposedForm
   try {
-    const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: systemPrompt }],
-        temperature: 0.7,
-        response_format: { type: 'json_object' },
-      }),
+    const res = await chatCompletion(cfg, {
+      messages: [{ role: 'user', content: systemPrompt }],
+      temperature: 0.7,
+      extra: { response_format: { type: 'json_object' } },
     })
 
     if (!res.ok) {
       const err = await res.text()
-      console.error('[friction/generate] DeepSeek error:', err)
+      console.error('[friction/generate] AI provider error:', err)
       return NextResponse.json({ error: 'AI 调用失败' }, { status: 502 })
     }
 

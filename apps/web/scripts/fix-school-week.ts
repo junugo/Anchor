@@ -345,8 +345,8 @@ async function main(): Promise<void> {
     const rows = db.select().from(userMemory).all()
     for (const r of rows) console.log(`  ${r.key}: ${r.value.slice(0, 80)}${r.value.length > 80 ? '…' : ''}`)
     if (APPLY) {
-      if (!process.env.DEEPSEEK_API_KEY) {
-        console.log('  ⚠ DEEPSEEK_API_KEY 未配置，跳过重提炼（旧 memory 保留，请人工检查）')
+      if (!process.env.ANCHOR_AI_API_KEY) {
+        console.log('  ⚠ ANCHOR_AI_API_KEY 未配置，跳过重提炼（旧 memory 保留，请人工检查）')
       } else {
         try {
           const { updateUserMemory } = await import('../lib/ai/memory')

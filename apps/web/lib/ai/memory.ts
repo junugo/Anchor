@@ -3,6 +3,7 @@ import { behaviorLogs, circadianLogs, schoolSchedule, userMemory } from '@anchor
 import { desc, gte } from 'drizzle-orm'
 import { getUserDateStr } from '../time/user-time'
 import { getRecentChatMessages } from './chatHistory'
+import { chatCompletion, resolveAiConfig } from './provider'
 
 function fmtMinutes(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -51,8 +52,8 @@ export async function updateUserMemory(db: Db, opts: UpdateUserMemoryOptions = {
 
   if (!opts.force && !shouldUpdateUserMemory(currentMemory, now)) return false
 
-  const apiKey = process.env['DEEPSEEK_API_KEY']
-  if (!apiKey) return false
+  const cfg = resolveAiConfig()
+  if (!cfg) return false
 
   const cutoffs = sevenDayCutoffs(now)
   const behavior = db
@@ -88,18 +89,13 @@ export async function updateUserMemory(db: Db, opts: UpdateUserMemoryOptions = {
 
   const prompt = `请基于 Anchor 最近 7 天行为数据、睡眠数据、最近对话和旧 memory，更新用户状态观察。只输出 JSON，不要 Markdown。JSON 必须包含四个字符串字段：sleep_pattern、dissociation_pattern、mood_trend、response_to_intervention。每个字段用一句中文自然语言，不评价用户，不使用命令式语气。\n\n日程事实：${schoolFact}\n\n行为事件计数：${JSON.stringify(eventCounts)}\n\n节律数据：${JSON.stringify(circadian)}\n\n最近对话：${JSON.stringify(chat)}\n\n旧 memory：${JSON.stringify(currentMemory)}`
 
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: '你是 Anchor 的用户状态 memory 提炼器，只输出 JSON。' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 500,
-      temperature: 0.2,
-    }),
+  const res = await chatCompletion(cfg, {
+    messages: [
+      { role: 'system', content: '你是 Anchor 的用户状态 memory 提炼器，只输出 JSON。' },
+      { role: 'user', content: prompt },
+    ],
+    max_tokens: 500,
+    temperature: 0.2,
     signal: AbortSignal.timeout(10_000),
   })
 

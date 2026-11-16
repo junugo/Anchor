@@ -36,18 +36,18 @@ test('sanitizeMessage returns trimmed valid message unchanged', () => {
 
 // generateCopy 路径测试（mock fetch，不发真实网络请求）
 test('generateCopy returns fallback when API key missing', async (_t) => {
-  const saved = process.env['DEEPSEEK_API_KEY']
-  delete process.env['DEEPSEEK_API_KEY']
+  const saved = process.env['ANCHOR_AI_API_KEY']
+  delete process.env['ANCHOR_AI_API_KEY']
   try {
     const out = await generateCopy('resting', 'soft')
     assert.equal(out, FALLBACK_MESSAGES.resting)
   } finally {
-    if (saved !== undefined) process.env['DEEPSEEK_API_KEY'] = saved
+    if (saved !== undefined) process.env['ANCHOR_AI_API_KEY'] = saved
   }
 })
 
 test('generateCopy returns fallback on resp.ok=false', async () => {
-  process.env['DEEPSEEK_API_KEY'] = 'test-key'
+  process.env['ANCHOR_AI_API_KEY'] = 'test-key'
   const origFetch = globalThis.fetch
   globalThis.fetch = async () => ({ ok: false, status: 401 } as unknown as Response)
   try {
@@ -55,12 +55,12 @@ test('generateCopy returns fallback on resp.ok=false', async () => {
     assert.equal(out, FALLBACK_MESSAGES.entertaining)
   } finally {
     globalThis.fetch = origFetch
-    delete process.env['DEEPSEEK_API_KEY']
+    delete process.env['ANCHOR_AI_API_KEY']
   }
 })
 
 test('generateCopy returns fallback on timeout (AbortError)', async () => {
-  process.env['DEEPSEEK_API_KEY'] = 'test-key'
+  process.env['ANCHOR_AI_API_KEY'] = 'test-key'
   const origFetch = globalThis.fetch
   globalThis.fetch = async () => { throw Object.assign(new Error('aborted'), { name: 'AbortError' }) }
   try {
@@ -68,12 +68,12 @@ test('generateCopy returns fallback on timeout (AbortError)', async () => {
     assert.equal(out, FALLBACK_MESSAGES.dissociating)
   } finally {
     globalThis.fetch = origFetch
-    delete process.env['DEEPSEEK_API_KEY']
+    delete process.env['ANCHOR_AI_API_KEY']
   }
 })
 
 test('generateCopy sanitizes and returns valid AI response', async () => {
-  process.env['DEEPSEEK_API_KEY'] = 'test-key'
+  process.env['ANCHOR_AI_API_KEY'] = 'test-key'
   const origFetch = globalThis.fetch
   globalThis.fetch = async () => ({
     ok: true,
@@ -84,6 +84,6 @@ test('generateCopy sanitizes and returns valid AI response', async () => {
     assert.equal(out, '休息一会儿吧')
   } finally {
     globalThis.fetch = origFetch
-    delete process.env['DEEPSEEK_API_KEY']
+    delete process.env['ANCHOR_AI_API_KEY']
   }
 })

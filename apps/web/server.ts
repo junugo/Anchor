@@ -57,7 +57,7 @@ async function runDiaryClassification(db: Db): Promise<void> {
 
   const nowS = Math.floor(Date.now() / 1000)
 
-  // 限并发 3：避免同时发起过多 DeepSeek API 调用
+  // 限并发 3：避免同时发起过多 AI API 调用
   const CONCURRENCY = 3
   type DiaryLabel = Awaited<ReturnType<typeof dc.classifyDiaryEntry>>
   const results: Array<{ entryId: number; label: DiaryLabel }> = []
@@ -195,6 +195,14 @@ async function main() {
   const userTz = getUserTimeZone()
   const { hour, minute } = getUserLocalParts(Date.now())
   console.log(`[server] 用户时区: ${userTz} | 当前用户本地时间: ${hour}:${String(minute).padStart(2, '0')}`)
+  // AI 提供商（BYOK）：打印端点/模型与脱敏密钥，缺失时 AI 功能静默降级
+  {
+    const { resolveAiConfig, maskApiKey } = await import('./lib/ai/provider')
+    const aiCfg = resolveAiConfig()
+    console.log(aiCfg
+      ? `[ai] 提供商: ${aiCfg.baseUrl} | 模型: ${aiCfg.model} | 密钥: ${maskApiKey(aiCfg.apiKey)}`
+      : '[ai] 未配置 ANCHOR_AI_API_KEY，AI 功能停用（提醒/对话/摘要/仲裁等）')
+  }
   initSunsetConfig(db)
   const { initSchoolSchedule } = await import('./lib/school/schedule')
   initSchoolSchedule(db)

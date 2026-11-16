@@ -1,6 +1,8 @@
 // 内容分类共享逻辑：sites / android apps / windows processes 三套 classify 路由复用
 // 返回 { high_stimulus, is_work }，两者互斥（high_stimulus=true 时 is_work 强制 false）
 
+import { chatCompletion, resolveAiConfig } from './provider'
+
 export type ClassifiableKind = 'site' | 'android_app' | 'windows_process'
 
 export interface ContentClassification {
@@ -20,23 +22,18 @@ export async function classifyContent(
   kind: ClassifiableKind,
   fields: Record<string, string>
 ): Promise<ContentClassification> {
-  const apiKey = process.env.DEEPSEEK_API_KEY
-  if (!apiKey) {
+  const cfg = resolveAiConfig()
+  if (!cfg) {
     return { high_stimulus: false, is_work: false, source: 'fallback', raw: '' }
   }
   try {
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        temperature: 0,
-        max_tokens: 80,
-        messages: [
-          { role: 'system', content: PROMPTS[kind] },
-          { role: 'user', content: JSON.stringify(fields) },
-        ],
-      }),
+    const response = await chatCompletion(cfg, {
+      temperature: 0,
+      max_tokens: 80,
+      messages: [
+        { role: 'system', content: PROMPTS[kind] },
+        { role: 'user', content: JSON.stringify(fields) },
+      ],
       signal: AbortSignal.timeout(5000),
     })
     const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> }

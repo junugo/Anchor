@@ -34,12 +34,12 @@ test('shouldUpdateUserMemory returns true when fewer than 4 keys present', () =>
 test('updateUserMemory writes extracted memory rows', async () => {
   const { dir, dbPath } = tempDbPath('memory')
   const originalFetch = globalThis.fetch
-  const originalKey = process.env['DEEPSEEK_API_KEY']
+  const originalKey = process.env['ANCHOR_AI_API_KEY']
   const db = createDb(dbPath)
 
   try {
     saveChatMessage(db, 'user', '我最近总是凌晨才睡', 10)
-    process.env['DEEPSEEK_API_KEY'] = 'test-key'
+    process.env['ANCHOR_AI_API_KEY'] = 'test-key'
     globalThis.fetch = async () => new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify({
         sleep_pattern: '最近倾向凌晨后入睡。',
@@ -57,8 +57,8 @@ test('updateUserMemory writes extracted memory rows', async () => {
     assert.equal(sleep?.updated_at, 1000)
   } finally {
     globalThis.fetch = originalFetch
-    if (originalKey == null) delete process.env['DEEPSEEK_API_KEY']
-    else process.env['DEEPSEEK_API_KEY'] = originalKey
+    if (originalKey == null) delete process.env['ANCHOR_AI_API_KEY']
+    else process.env['ANCHOR_AI_API_KEY'] = originalKey
     closeDb(db)
     fs.rmSync(dir, { recursive: true, force: true })
   }

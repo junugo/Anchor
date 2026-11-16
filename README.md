@@ -31,7 +31,7 @@ Anchor 是**生活节律重建系统**：多端行为感知 → 服务器统一�
 
 | 模块 | 说明 |
 |------|------|
-| 🧠 状态推断引擎 | 打分制 + AI 仲裁（DeepSeek），5 分钟完整 tick + 1 分钟轻量 tick |
+| 🧠 状态推断引擎 | 打分制 + AI 仲裁（BYOK，任意 OpenAI 兼容模型），5 分钟完整 tick + 1 分钟轻量 tick |
 | 🌇 日落/宵禁 | T-60 → T0 渐进式就寝引导，T0 全屏灰屏强制执行，睡眠状态机 |
 | 🛡️ 日程哨兵 | 上学/工作时段无真实交互 → 自动 away，不推断、不干预、不写日志 |
 | 💬 AI 数字室友 | 中文对话（≤80 字，不评判），每日维护、日记分类、每周分析 |
@@ -84,7 +84,7 @@ packages/
 ```bash
 pnpm install
 cp apps/web/.env.example apps/web/.env
-# 编辑 .env：填入 DEEPSEEK_API_KEY，生产环境务必设置 ANCHOR_DATA_KEY 与 ANCHOR_TZ
+# 编辑 .env：填入 ANCHOR_AI_API_KEY，生产环境务必设置 ANCHOR_DATA_KEY 与 ANCHOR_TZ
 pnpm web:dev        # http://localhost:4000
 ```
 
@@ -107,7 +107,7 @@ pnpm web:dev        # http://localhost:4000
 
 见 [apps/web/.env.example](apps/web/.env.example)。核心项：
 
-- `DEEPSEEK_API_KEY` — AI 提醒/日记/分类（必填）
+- `ANCHOR_AI_API_KEY` / `ANCHOR_AI_MODEL` / `ANCHOR_AI_BASE_URL` — AI 提供商 BYOK（默认 DeepSeek 端点 + `deepseek-chat` 模型，兼容 OpenAI / Moonshot / Ollama 等任意 OpenAI 兼容端点；不配置则 AI 功能停用，核心记录推断不受影响）
 - `ANCHOR_DATA_KEY` — 上行加密密钥，必须与所有客户端一致（生产必填）
 - `ANCHOR_TZ` — 用户时区，所有作息时钟按时区计算（默认 `Asia/Shanghai`）
 - `ANCHOR_DB_PATH` — SQLite 路径（默认 `~/.anchor/anchor.db`）
