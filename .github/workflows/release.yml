@@ -45,6 +45,7 @@ jobs:
           & $iscc "packaging\anchor.iss" "/DAppVersion=$ver"
           Copy-Item "release\Anchor Setup $ver.exe" "anchor-desktop-$ver-windows-x64-setup.exe"
           Copy-Item "target\release\anchor-desktop.exe" "anchor-desktop-$ver-windows-x64.exe"
+          Get-ChildItem release\*.exe | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
