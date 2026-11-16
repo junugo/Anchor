@@ -74,10 +74,52 @@ jobs:
           name: anchor-mobile-apk
           path: anchor-mobile-*-debug.apk
 
+  package-extensions:
+    name: 打包 Chrome / VS Code 扩展
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install || (pnpm approve-builds --all && pnpm install)
+
+      # tsconfig extends ./.wxt/tsconfig.json（WXT 生成目录，不入库）
+      - name: 生成 WXT 类型目录
+        run: pnpm --filter apps-chrome-ext exec wxt prepare
+
+      - name: 构建 Chrome 扩展（可上传商店的 zip）
+        working-directory: apps/chrome-ext
+        run: pnpm zip
+
+      - name: 构建 VS Code 扩展（vsix）
+        working-directory: apps/vscode-ext
+        run: pnpm package
+
+      - name: 重命名产物
+        run: |
+          ver=${GITHUB_REF_NAME#v}
+          cp apps/chrome-ext/.output/*-chrome.zip "anchor-chrome-${ver}.zip"
+          cp apps/vscode-ext/*.vsix "anchor-vscode-${ver}.vsix"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anchor-extensions
+          path: |
+            anchor-chrome-*.zip
+            anchor-vscode-*.vsix
+
   # 阶段 3：发布 GitHub Release
   publish:
     name: 发布 GitHub Release
-    needs: [package-desktop, package-android]
+    needs: [package-desktop, package-android, package-extensions]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
