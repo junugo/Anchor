@@ -31,16 +31,27 @@ jobs:
         working-directory: apps/desktop-rs
         run: cargo build --release
 
-      - name: 重命名产物
+      - name: 安装 Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      # 安装器脚本 packaging/anchor.iss；AppVersion 用 tag 版本覆盖脚本内默认
+      - name: 编译安装器
         shell: pwsh
+        working-directory: apps/desktop-rs
         run: |
           $ver = $env:GITHUB_REF_NAME.TrimStart('v')
-          Copy-Item apps/desktop-rs/target/release/anchor-desktop.exe "anchor-desktop-$ver-windows-x64.exe"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe" }
+          & $iscc "packaging\anchor.iss" "/DAppVersion=$ver"
+          Copy-Item "release\Anchor Setup $ver.exe" "anchor-desktop-$ver-windows-x64-setup.exe"
+          Copy-Item "target\release\anchor-desktop.exe" "anchor-desktop-$ver-windows-x64.exe"
 
       - uses: actions/upload-artifact@v4
         with:
           name: anchor-desktop-windows-x64
-          path: anchor-desktop-*-windows-x64.exe
+          path: |
+            apps/desktop-rs/anchor-desktop-*-windows-x64.exe
+            apps/desktop-rs/anchor-desktop-*-windows-x64-setup.exe
 
   package-android:
     name: 打包 Android APK

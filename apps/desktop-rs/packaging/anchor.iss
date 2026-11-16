@@ -7,7 +7,7 @@
 #define AppExe "anchor-desktop.exe"
 
 [Setup]
-AppId={{A9C1E7B2-3F4A-4E5D-9C0B-ANCHOR000001}
+AppId={{A9C1E7B2-3F4A-4E5D-9C0B-1A2B3C4D5E6F}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=junugo
