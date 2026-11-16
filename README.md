@@ -123,10 +123,6 @@ cd apps/mobile/android && ./gradlew.bat :app:testDebugUnitTest
 ## 📖 文档
 
 - 📘 [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — **非开发者使用指南**（安装 → 配置 → 日常使用 → FAQ）
-- 🧭 [PROJECT_CHARTER.md](docs/PROJECT_CHARTER.md) — 项目章程与北极星
-- 🔌 [docs/api.md](docs/api.md) — HTTP / WebSocket API
-- 🛠️ [docs/superpowers/specs/](docs/superpowers/specs/) — 设计规范与各模块设计
-- 🤖 [AGENTS.md](AGENTS.md) — 架构原则、自托管部署与运维笔记
 
 ## 📄 License
 

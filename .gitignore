@@ -84,3 +84,10 @@ apps/mobile/android/local.properties
 
 # Local DB scratch scripts
 apps/web/_*.mjs
+
+# Internal working docs (local only — not part of the open-source repo)
+AGENTS.md
+CLAUDE.md
+docs/PROJECT_CHARTER.md
+docs/api.md
+docs/superpowers/

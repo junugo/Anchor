@@ -174,5 +174,4 @@ pnpm web:start
 ## 🔧 更多
 
 - 编译源码、开发调试：看 [README](../README.md)
-- 自托管部署细节与运维笔记：看 [AGENTS.md](../AGENTS.md)
-- 设计初衷与完整愿景：看 [PROJECT_CHARTER.md](PROJECT_CHARTER.md)
+- 反馈问题或交流：到 [GitHub Issues](https://github.com/junugo/Anchor/issues) 留言
