@@ -71,9 +71,6 @@ apps/vscode-ext/dist/
 .vercel/
 .netlify/
 
-# Android signing (local debug keystore — never commit)
-apps/mobile/android/app/debug.keystore
-
 # Local AI-tool workspaces (machine-local, never commit)
 .codestable/
 .trae/

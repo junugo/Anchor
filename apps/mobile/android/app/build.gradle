@@ -25,6 +25,17 @@ android {
         versionName '1.0'
     }
 
+    // 共享 debug 签名：debug keystore 入库（安卓生态里 debug 钥匙本就是公开身份），
+    // 保证 CI 构建与本地构建同签名，覆盖更新可用；不配置则每台机器自动生成不同钥匙
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
