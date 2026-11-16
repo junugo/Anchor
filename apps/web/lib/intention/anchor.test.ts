@@ -13,6 +13,13 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { createDb, closeDb, dailyIntentions } from '@anchor/db'
 import { tempDbPath } from '../testUtils'
+import { getUserDateStr } from '../time/user-time'
+
+// 与实现同基准（用户时区）取日期串；不能用 new Date().getXxx()——
+// 那走系统本地时区，CI（UTC）在上海时间 16:00–24:00 运行时会跨日翻车
+function userDate(offsetDays = 0): string {
+  return getUserDateStr(Date.now() + offsetDays * 86400_000)
+}
 
 // 收集 broadcast 调用（模块隔离不可用，故直接调用逻辑层函数并检查 DB 状态）
 test('getTodayIntention returns null when no intention exists', async () => {
@@ -35,9 +42,7 @@ test('getTodayIntention returns today intention when it exists', async () => {
   try {
     db = createDb(dbPath)
     const now = Math.floor(Date.now() / 1000)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const d = new Date()
-    const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    const today = userDate()
 
     db.insert(dailyIntentions).values({
       date: today,
@@ -63,13 +68,8 @@ test('getRecentIntentions returns records within the window', async () => {
     db = createDb(dbPath)
     const now = Math.floor(Date.now() / 1000)
 
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const d = new Date()
-    const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yest = `${yesterday.getFullYear()}-${pad(yesterday.getMonth() + 1)}-${pad(yesterday.getDate())}`
+    const today = userDate()
+    const yest = userDate(-1)
 
     db.insert(dailyIntentions).values({
       date: today,
@@ -86,9 +86,7 @@ test('getRecentIntentions returns records within the window', async () => {
     }).run()
 
     // 两条都在 7 天内
-    const old = new Date()
-    old.setDate(old.getDate() - 10)
-    const oldDate = `${old.getFullYear()}-${pad(old.getMonth() + 1)}-${pad(old.getDate())}`
+    const oldDate = userDate(-10)
     db.insert(dailyIntentions).values({
       date: oldDate,
       content: '10天前的意图',

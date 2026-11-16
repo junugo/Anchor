@@ -6,6 +6,7 @@ import test from 'node:test'
 import { circadianLogs, closeDb, createDb, userLivingContext, userMemory } from '@anchor/db'
 
 import { computeSeverityLevel } from './severity-assessor'
+import { getUserDateStr, userZonedTimeToUtc } from '../time/user-time'
 
 // 辅助：创建隔离测试数据库
 function makeTmpDb() {
@@ -34,10 +35,10 @@ function seedContext(db: ReturnType<typeof createDb>, overrides: Record<string, 
 }
 
 // 辅助：向 circadian_logs 插入一行，date 相对今天偏移 daysAgo
+// 日期基准与实现一致（用户时区，默认 Asia/Shanghai）；不能用
+// new Date().toISOString()——那是 UTC 日期，跨日窗口与实现错位
 function seedCircadian(db: ReturnType<typeof createDb>, daysAgo: number, overrides: Record<string, unknown> = {}) {
-  const d = new Date()
-  d.setDate(d.getDate() - daysAgo)
-  const dateStr = d.toISOString().slice(0, 10)
+  const dateStr = getUserDateStr(Date.now() - daysAgo * 86400_000)
   db.insert(circadianLogs)
     .values({
       date: dateStr,
@@ -74,10 +75,8 @@ test('L3 — extreme conditions → critical', () => {
     // 连续 3 天睡眠极端偏移（>90min = >5400s，即凌晨约 3:30 才睡）
     // 设 sleep_start = 日期凌晨 00:00 + 4h（14400s）→ 偏移 4h > 90min
     for (let i = 0; i < 3; i++) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().slice(0, 10)
-      const dayStartS = Math.floor(new Date(dateStr + 'T00:00:00').getTime() / 1000)
+      const dateStr = getUserDateStr(Date.now() - i * 86400_000)
+      const dayStartS = userZonedTimeToUtc(dateStr, 0) // 与实现同基准：用户时区零点
       seedCircadian(db, i, {
         sleep_start: dayStartS + 4 * 3600, // 04:00 入睡，偏移 4h
         dissociation_count: 5,
@@ -108,10 +107,8 @@ test('L0 — calm conditions → null (normal)', () => {
 
     // 连续 3 天睡眠正常（偏移 < 30min = 1800s，即凌晨 00:30 前睡）
     for (let i = 0; i < 3; i++) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().slice(0, 10)
-      const dayStartS = Math.floor(new Date(dateStr + 'T00:00:00').getTime() / 1000)
+      const dateStr = getUserDateStr(Date.now() - i * 86400_000)
+      const dayStartS = userZonedTimeToUtc(dateStr, 0) // 与实现同基准：用户时区零点
       seedCircadian(db, i, {
         sleep_start: dayStartS + 0.25 * 3600, // 00:15 入睡，偏移 15min
         dissociation_count: 0,
