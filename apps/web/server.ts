@@ -11,6 +11,7 @@ import { parse } from 'url'
 import os from 'node:os'
 import next from 'next'
 import { initWsServer } from './lib/ws/server'
+import { guardRequest } from './lib/auth/guard'
 import { initDb } from './lib/db'
 import { initSunsetConfig } from './lib/sunset/config'
 import { getUserDateStr, getUserLocalParts, getUserSleepDateStr, getUserTimeZone, getUserWeekday, userZonedTimeToUtc } from './lib/time/user-time'
@@ -216,6 +217,8 @@ async function main() {
     .catch(console.error)
 
   const server = createServer((req, res) => {
+    // 认证中间件：公开路径直接放行；未认证 API 401 / 页面 302；认证信息挂 req.anchorAuth
+    if (!guardRequest(req, res)) return
     const parsedUrl = parse(req.url!, true)
     handle(req, res, parsedUrl)
   })
@@ -255,6 +258,16 @@ async function main() {
   setInterval(() => {
     import('./lib/diary/generateCandidates')
       .then(m => m.generateDiaryCandidates(db))
+      .catch(console.error)
+  }, 60 * 60 * 1000)
+
+  // Hourly 会话清理：物理删除过期会话（N=0 时不打日志）
+  setInterval(() => {
+    import('./lib/auth/session')
+      .then(m => {
+        const n = m.cleanupExpiredSessions(db)
+        if (n > 0) console.log(`[auth] 清理过期会话 ${n} 个`)
+      })
       .catch(console.error)
   }, 60 * 60 * 1000)
 

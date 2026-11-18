@@ -2,8 +2,12 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import type { WsServerMessage, WsClientMessage, UserState, SunsetClearReason } from '@anchor/types'
 import { unwrapBody, resolveDataKey, dataKeyFingerprint } from '@anchor/utils'
+import { eq } from 'drizzle-orm'
+import { devices } from '@anchor/db'
 import { handleClientMessage } from './handlers'
 import { getUserMinutesSinceMidnight } from '../time/user-time'
+import { getDb } from '../db'
+import { verifyDeviceToken } from '../auth/device-token'
 
 // Next.js API 路由（webpack 打包）与自定义 server（tsx 加载）是两套模块实例，
 // 模块级状态不共享。clients 挂到 globalThis 保证全进程唯一，
@@ -11,20 +15,68 @@ import { getUserMinutesSinceMidnight } from '../time/user-time'
 const globalForWs = globalThis as unknown as { __anchorWsClients?: Set<WebSocket> }
 const clients = (globalForWs.__anchorWsClients ??= new Set<WebSocket>())
 
-export function initWsServer(server: Server) {
+/** 已认证连接上挂的设备信息（认证成功后填充，广播/日志可用） */
+interface WsWithDevice extends WebSocket {
+  deviceId?: number
+  deviceName?: string
+}
+
+// 认证超时默认 10s；测试可注入更短值
+const DEFAULT_AUTH_TIMEOUT_MS = 10_000
+
+export function initWsServer(server: Server, options?: { authTimeoutMs?: number }) {
   const wss = new WebSocketServer({ server, path: '/ws' })
+  const authTimeoutMs = options?.authTimeoutMs ?? DEFAULT_AUTH_TIMEOUT_MS
 
   // 记录服务器数据密钥指纹，便于排查客户端密钥不一致
   dataKeyFingerprint(resolveDataKey(process.env)).then(fp => {
     console.log('[ws] 数据密钥指纹:', fp)
   }).catch(() => { /* ignore */ })
 
-  wss.on('connection', async (ws: WebSocket, _req: IncomingMessage) => {
-    clients.add(ws)
+  wss.on('connection', async (ws: WsWithDevice, _req: IncomingMessage) => {
+    // 认证门：连接后不立即视为已认证，仅处理 {type:'auth'}；超时未认证关闭（4401）
+    let authed = false
+    const authTimer = setTimeout(() => {
+      if (!authed) {
+        console.log('[ws] 认证超时')
+        ws.close(4401)
+      }
+    }, authTimeoutMs)
 
     ws.on('message', async (raw) => {
       try {
         let msg: WsClientMessage = JSON.parse(raw.toString())
+
+        // 认证消息优先处理（明文控制消息，不走加密信封）
+        if ((msg as { type?: string }).type === 'auth') {
+          const { token } = msg as unknown as { type: 'auth'; token: string }
+          const device = typeof token === 'string' ? verifyDeviceToken(getDb(), token) : null
+          if (device) {
+            authed = true
+            clearTimeout(authTimer)
+            ws.deviceId = device.deviceId
+            ws.deviceName = device.name
+            clients.add(ws)
+            // 刷新设备活跃时间
+            getDb().update(devices)
+              .set({ last_seen_at: Math.floor(Date.now() / 1000) })
+              .where(eq(devices.id, device.deviceId))
+              .run()
+            send(ws, { type: 'auth_ok', deviceId: device.deviceId })
+            // 认证成功后再下发配置/阶段/当前状态，客户端断线重连时可恢复本地执行
+            send(ws, await buildSunsetConfigMessage())
+            send(ws, await buildCurrentSunsetStageMessage())
+            sendCurrentState(ws)
+          } else {
+            send(ws, { type: 'auth_failed' })
+            ws.close(4401)
+          }
+          return
+        }
+
+        // 认证前其余消息一律忽略（不打日志，防刷）
+        if (!authed) return
+
         // 加密上传：客户端对 ingest 消息加密（enc: true），解密后走正常处理；
         // 解密失败丢弃并告警；明文消息（旧客户端）原样兼容
         if ((msg as { enc?: boolean }).enc === true) {
@@ -41,18 +93,18 @@ export function initWsServer(server: Server) {
       } catch { /* ignore malformed */ }
     })
 
-    ws.on('close', () => clients.delete(ws))
-
-    // 连接后下发配置和当前阶段，客户端断线重连时可恢复本地执行。
-    send(ws, await buildSunsetConfigMessage())
-    send(ws, await buildCurrentSunsetStageMessage())
-    sendCurrentState(ws)
+    ws.on('close', () => {
+      clearTimeout(authTimer)
+      clients.delete(ws)
+    })
   })
 
   // Heartbeat: ping all clients every 30s to keep connections alive
-  setInterval(() => {
+  const heartbeat = setInterval(() => {
     broadcast({ type: 'ping' })
   }, 30_000)
+  // 不阻塞进程退出（测试进程无 server.listen 的引用时也能自然结束）
+  heartbeat.unref()
 }
 
 export function broadcast(msg: WsServerMessage) {

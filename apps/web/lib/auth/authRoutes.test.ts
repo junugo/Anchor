@@ -2,7 +2,8 @@
 // 每个测试文件独立进程，本文件共享一个库，按顺序执行（node:test 顶层测试默认串行）。
 import assert from 'node:assert/strict'
 import test, { after } from 'node:test'
-import { closeDb } from '@anchor/db'
+import { eq } from 'drizzle-orm'
+import { authCredentials, closeDb } from '@anchor/db'
 import { cleanupDir, tempDbPath } from '../testUtils'
 import { getDb } from '@/lib/db'
 import { SESSION_COOKIE } from './request'
@@ -147,6 +148,32 @@ test('logout：未登录也 200（幂等）', async () => {
   const res = await logout(new Request('http://localhost/api/logout', { method: 'POST' }))
   assert.equal(res.status, 200)
   assert.deepEqual(await res.json(), { ok: true })
+})
+
+test('setup：并发竞态（检查与插入之间他者写入）→ 409 而非 500', async () => {
+  // 重置为未设密码态
+  const db = getDb()
+  db.delete(authCredentials).where(eq(authCredentials.user_id, 'default')).run()
+
+  const p = setup(jsonReq('/api/setup', { password: 'race-pass-123' }))
+  // 路由检查 existing 之后会 await hashPassword（异步 scrypt），利用该窗口抢先写入
+  const now = Math.floor(Date.now() / 1000)
+  db.insert(authCredentials).values({
+    user_id: 'default',
+    password_hash: 'scrypt$1$1$1$aa$bb',
+    scrypt_params: { n: 1, r: 1, p: 1 },
+    created_at: now,
+    updated_at: now,
+  }).run()
+
+  const res = await p
+  assert.equal(res.status, 409)
+  assert.deepEqual(await res.json(), { error: '已设置过密码' })
+
+  // 复原合法密码，不影响后续测试（上面种的是假哈希）
+  db.delete(authCredentials).where(eq(authCredentials.user_id, 'default')).run()
+  const restore = await setup(jsonReq('/api/setup', { password: 'correct-horse' }))
+  assert.equal(restore.status, 200)
 })
 
 test('password：未登录 401', async () => {

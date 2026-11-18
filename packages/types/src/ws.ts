@@ -54,6 +54,9 @@ export type WsServerMessage =
   // 已有客户端开始输入（接管）：其他端收到后关闭弹窗；接管后 prompt 不再过期，提交/跳过永远有效
   | { type: 'intent:typing'; prompt_id: string }
   | { type: 'context_switch:typing'; prompt_id: string }
+  // WS 认证门：设备 token 校验结果（认证失败随后 close 4401）
+  | { type: 'auth_ok'; deviceId: number }
+  | { type: 'auth_failed' }
 
 // 客户端→服务器上报
 export type WsClientMessage =
@@ -92,4 +95,7 @@ export type WsClientMessage =
   // Windows 进程分类
   | { type: 'process:update_classification'; process_name: string; high_stimulus?: boolean; is_work?: boolean }
   | { type: 'process:delete_classification'; process_name: string }
+
+  // WS 认证门：连接后首个必须消息（明文，控制消息不走加密信封）
+  | { type: 'auth'; token: string }
 

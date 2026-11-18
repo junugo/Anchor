@@ -36,13 +36,17 @@ export async function POST(req: NextRequest) {
 
   const { hash, params } = await hashPassword(password)
   const now = Math.floor(Date.now() / 1000)
-  db.insert(authCredentials).values({
+  // 并发双 setup：插入撞 user_id 唯一约束时不抛 500，静默忽略后复查（第二个请求拿到 409）
+  const inserted = db.insert(authCredentials).values({
     user_id: 'default',
     password_hash: hash,
     scrypt_params: JSON.parse(params),
     created_at: now,
     updated_at: now,
-  }).run()
+  }).onConflictDoNothing().run()
+  if (Number(inserted.changes) === 0) {
+    return NextResponse.json({ error: '已设置过密码' }, { status: 409 })
+  }
 
   return NextResponse.json({ ok: true })
 }
