@@ -118,9 +118,12 @@ pub async fn run(shared: Arc<RwLock<SharedState>>, mut gui_cmd_rx: mpsc::Receive
         tokio::select! {
             text = ingest_rx.recv() => {
                 let Some(text) = text else { break };
-                // 未配对不上报：跳过直发与离线入队
+                // 上报门只看 config 真实配对态（is_paired），与展示态 shared.paired 语义不同：
+                // 配对失效期间 shared.paired=false 仅用于引导重新配对，cfg.token 仍在——
+                // 但此时 WS 已断开、未配对新设备前服务器不会认旧 token，数据照旧本地累积
+                // （断线逻辑会入离线队列），重新配对/恢复连接后统一补发。此分裂是有意设计。
                 if !cfg.is_paired() {
-                    log::debug!("[ingest] 未配对，跳过本次上报");
+                    log::debug!("[ingest] 未配对，跳过本次上报（数据保留在离线队列，重配后补发）");
                     continue;
                 }
                 send_or_queue(connected, &config_error, &to_ws_tx, queue.as_ref(), text, true, cfg.crypto_key()).await;
@@ -204,18 +207,22 @@ pub async fn run(shared: Arc<RwLock<SharedState>>, mut gui_cmd_rx: mpsc::Receive
                         cfg = new_cfg;
                         write_shared(&shared, |s| {
                             s.paired = cfg.is_paired();
-                            // 用户在设置窗主动保存（可能重新配对成功）→ 清除失效标记
-                            s.pair_invalid = false;
                         });
 
-                        // server_url/token 变更或未配对恢复 → 重建 WS 任务
+                        // server_url/token 变更或未配对恢复 → 重建 WS 任务。
+                        // 注意：pair_invalid 只在 WS 真正重建时才清除——
+                        // 若重连条件不满足（配对仍失效），保留失效标记继续引导用户重新配对，
+                        // 避免「显示已配对但永不连接」的静默死态。
                         if (url_changed || token_changed || !ws_running) && cfg.is_paired() {
                             log::info!("连接参数变更，重连 WS: {}", cfg.server_url);
                             respawn_ws(&cfg, &mut ws_gen, &ws_ev_tx, &mut to_ws_tx);
                             ws_running = true;
                             shutdown::set_to_ws(to_ws_tx.clone());
                             connected = false;
-                            write_shared(&shared, |s| s.connected = false);
+                            write_shared(&shared, |s| {
+                                s.connected = false;
+                                s.pair_invalid = false;
+                            });
                         }
                     }
                     Some(GuiCmd::PairRequest { server_url, code, device_name }) => {
@@ -309,6 +316,7 @@ pub async fn run(shared: Arc<RwLock<SharedState>>, mut gui_cmd_rx: mpsc::Receive
                                 // 配对失效：托盘提示 + 打开设置窗引导重新配对；WS 任务已自行退出
                                 log::warn!("[WS] 配对失效（auth_failed/4401），停止重连，等待重新配对");
                                 connected = false;
+                                ws_running = false;
                                 shutdown::set_connected(false);
                                 write_shared(&shared, |s| {
                                     s.connected = false;
