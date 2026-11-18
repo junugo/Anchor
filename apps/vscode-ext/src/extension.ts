@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import type { BehaviorSource, BehaviorEventType, WsServerMessage, UserState } from '@anchor/types'
-import { DEFAULT_DATA_KEY, STATE_LABELS, STATE_COLOR_TOKENS } from '@anchor/utils'
+import { STATE_LABELS, STATE_COLOR_TOKENS } from '@anchor/utils'
 import { lightColors } from '@anchor/ui/tokens'
 import { connect, disconnect, isConnected, send, onMessage, onReconnect, setConfigError } from './ws-client'
 import { createOfflineQueue } from './offline-queue'
@@ -46,10 +46,10 @@ function updateStatusBarState(): void {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  // 读取 VS Code 设置中的服务器地址与数据密钥（含默认值）
+  // 读取 VS Code 设置中的服务器地址与数据密钥（未配置时为 null，由加密调用处显式拒绝上报）
   const cfg = vscode.workspace.getConfiguration('anchor')
   const serverUrl = cfg.get<string>('serverUrl')?.trim() || 'http://localhost:4000'
-  const dataKey = cfg.get<string>('dataKey')?.trim() || DEFAULT_DATA_KEY
+  const dataKey = cfg.get<string>('dataKey')?.trim() || null
   const wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws'
 
   // 创建状态栏项
@@ -72,7 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!e.affectsConfiguration('anchor.serverUrl') && !e.affectsConfiguration('anchor.dataKey')) return
       const nextCfg = vscode.workspace.getConfiguration('anchor')
       const nextUrl = nextCfg.get<string>('serverUrl')?.trim() || 'http://localhost:4000'
-      const nextKey = nextCfg.get<string>('dataKey')?.trim() || DEFAULT_DATA_KEY
+      const nextKey = nextCfg.get<string>('dataKey')?.trim() || null
       _queue = createOfflineQueue(context, nextUrl, nextKey)
       connect(nextUrl.replace(/^http/, 'ws') + '/ws', nextKey)
     }),

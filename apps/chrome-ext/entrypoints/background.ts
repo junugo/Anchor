@@ -188,6 +188,12 @@ export default defineBackground(() => {
   async function flushQueue(): Promise<void> {
     const events = await getAllQueuedEvents()
     if (events.length === 0) return
+    // 未配置数据密钥：显式拒绝上报（须选项页配置或等待配对改造），保留队列待配置后补发
+    const dataKey = getServerConfig().dataKey
+    if (dataKey === null) {
+      console.warn('[Anchor] 未配置数据密钥，暂停离线队列补发；请在选项页填写或等待配对流程改造')
+      return
+    }
     for (let i = 0; i < events.length; i += FLUSH_CHUNK_SIZE) {
       const chunk = events.slice(i, i + FLUSH_CHUNK_SIZE)
       try {
@@ -198,7 +204,7 @@ export default defineBackground(() => {
             payload: evt.payload,
             logged_at: evt.logged_at ?? Math.floor((evt.queued_at ?? Date.now()) / 1000),
           })),
-        }, getServerConfig().dataKey)
+        }, dataKey)
         const resp = await fetch(`${getServerConfig().serverUrl}/api/ingest/batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -244,6 +250,13 @@ export default defineBackground(() => {
 
   async function sendBehavior(event_type: BehaviorEventType, payload: Record<string, unknown>) {
     const logged_at = Math.floor(Date.now() / 1000)
+    // 未配置数据密钥：显式拒绝上报（须选项页配置或等待配对改造），事件进入离线队列待配置后补发
+    const dataKey = getServerConfig().dataKey
+    if (dataKey === null) {
+      console.warn('[Anchor] 未配置数据密钥，拒绝上报；请在选项页填写或等待配对流程改造')
+      await enqueueEvent('chrome', event_type, payload, logged_at)
+      return
+    }
     // 加密上行：整个 ingest 消息 AES-256-GCM 加密后发送（服务器按 enc 标记解密）
     const envelope = await encryptEnvelope({
       type: 'ingest',
@@ -251,7 +264,7 @@ export default defineBackground(() => {
       event_type,
       payload,
       logged_at,
-    } satisfies WsClientMessage, getServerConfig().dataKey)
+    } satisfies WsClientMessage, dataKey)
     const sent = wsClient.send(envelope)
     if (sent) {
       flushQueue().catch(() => {})

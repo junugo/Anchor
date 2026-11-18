@@ -1,6 +1,6 @@
 import type * as vscode from 'vscode'
 import type { BehaviorSource, BehaviorEventType } from '@anchor/types'
-import { DEFAULT_DATA_KEY, encryptEnvelope } from '@anchor/utils'
+import { encryptEnvelope } from '@anchor/utils'
 
 const QUEUE_KEY = 'anchor.offlineQueue'
 const MAX_QUEUE_SIZE = 500
@@ -17,8 +17,8 @@ export interface QueuedEvent {
  * 离线队列：WS 断开时积压 ingest 事件，重连后分块 POST /api/ingest/batch 补发。
  * 存 ExtensionContext.globalState；上限 500 条，超出 FIFO 淘汰最旧 10%。
  */
-export function createOfflineQueue(context: vscode.ExtensionContext, serverUrl: string, dataKey?: string) {
-  const key = dataKey?.trim() || DEFAULT_DATA_KEY
+export function createOfflineQueue(context: vscode.ExtensionContext, serverUrl: string, dataKey?: string | null) {
+  const key = dataKey?.trim() || null
   const read = (): QueuedEvent[] => context.globalState.get<QueuedEvent[]>(QUEUE_KEY, [])
   const write = (events: QueuedEvent[]) => context.globalState.update(QUEUE_KEY, events)
 
@@ -34,6 +34,11 @@ export function createOfflineQueue(context: vscode.ExtensionContext, serverUrl: 
 
     /** 成功一块删一块，失败保留剩余等待下次 */
     async flush(): Promise<void> {
+      // 未配置数据密钥：显式拒绝补发（须在设置中配置或等待配对改造），保留队列
+      if (key === null) {
+        console.warn('[Anchor] 未配置数据密钥，暂停离线队列补发；请在设置中配置或等待配对流程改造')
+        return
+      }
       let events = read()
       while (events.length > 0) {
         const chunk = events.slice(0, FLUSH_CHUNK_SIZE)

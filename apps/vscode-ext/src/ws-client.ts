@@ -1,8 +1,8 @@
 import WebSocket from 'ws'
 import type { WsServerMessage, WsClientMessage } from '@anchor/types'
-import { DEFAULT_DATA_KEY, encryptEnvelope } from '@anchor/utils'
+import { encryptEnvelope } from '@anchor/utils'
 
-let _dataKey = DEFAULT_DATA_KEY
+let _dataKey: string | null = null
 let _configError: string | null = null
 
 const MAX_RETRIES = 10
@@ -18,9 +18,9 @@ const handlers: MessageHandler[] = []
 export type ReconnectHandler = () => void
 const reconnectHandlers: ReconnectHandler[] = []
 
-/** 设置上行加密密钥，应在 connect 前调用。 */
+/** 设置上行加密密钥，应在 connect 前调用。空串视为未配置（null） */
 export function setDataKey(key: string): void {
-  _dataKey = key.trim() || DEFAULT_DATA_KEY
+  _dataKey = key.trim() || null
 }
 
 /** 设置配置错误状态，禁止发送消息 */
@@ -42,7 +42,7 @@ export function onMessage(handler: MessageHandler): void {
   handlers.push(handler)
 }
 
-export function connect(serverUrl: string, dataKey?: string): void {
+export function connect(serverUrl: string, dataKey?: string | null): void {
   if (dataKey) setDataKey(dataKey)
 
   // 若已有连接或重连计时器，先清理
@@ -99,6 +99,11 @@ export async function send(msg: WsClientMessage): Promise<void> {
     return
   }
   if (ws?.readyState !== WebSocket.OPEN) return
+  // 未配置数据密钥：显式拒绝上报（须在设置中配置或等待配对改造），绝不回落内置密钥
+  if (_dataKey === null) {
+    console.warn('[Anchor WS] 未配置数据密钥，拒绝上报；请在设置中配置或等待配对流程改造')
+    return
+  }
   try {
     const envelope = await encryptEnvelope(msg, _dataKey)
     ws.send(JSON.stringify(envelope))

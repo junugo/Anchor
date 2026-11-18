@@ -1,16 +1,17 @@
-import { DEFAULT_DATA_KEY } from '@anchor/utils'
-
 /**
  * 服务器连接配置（服务器地址 + 上行数据密钥）。
  *
- * 取值优先级：chrome.storage.local 用户配置 > 构建期 VITE_* 环境变量 > 内置开发默认。
+ * 取值优先级：chrome.storage.local 用户配置 > 构建期 VITE_* 环境变量。
+ * dataKey 为 null 表示未配置：background 在加密上报处显式拒绝（提示需配置数据密钥，
+ * 等待后续配对流程改造），绝不回落任何内置密钥。
  * 用户在扩展选项页保存后即时生效：background 订阅 onServerConfigChange 自动重连，
  * 无需重新加载扩展或重新打包。
  */
 
 export interface ServerConfig {
   serverUrl: string
-  dataKey: string
+  /** 上行数据密钥；null = 未配置（须在选项页填写或等待配对改造） */
+  dataKey: string | null
 }
 
 const STORAGE_KEYS = {
@@ -20,7 +21,7 @@ const STORAGE_KEYS = {
 
 const ENV_DEFAULTS: ServerConfig = {
   serverUrl: (import.meta.env.VITE_ANCHOR_SERVER as string | undefined)?.trim() || 'http://localhost:4000',
-  dataKey: (import.meta.env.VITE_ANCHOR_DATA_KEY as string | undefined)?.trim() || DEFAULT_DATA_KEY,
+  dataKey: (import.meta.env.VITE_ANCHOR_DATA_KEY as string | undefined)?.trim() || null,
 }
 
 let cached: ServerConfig = { ...ENV_DEFAULTS }
@@ -40,7 +41,7 @@ export function getServerConfig(): ServerConfig {
   return cached
 }
 
-/** 保存用户配置到 chrome.storage.local 并刷新缓存；空白值回退默认（等效恢复默认） */
+/** 保存用户配置到 chrome.storage.local 并刷新缓存；空白值视为清除（dataKey 归 null） */
 export async function saveServerConfig(patch: Partial<ServerConfig>): Promise<void> {
   const next: ServerConfig = {
     serverUrl: patch.serverUrl?.trim() || ENV_DEFAULTS.serverUrl,
@@ -48,7 +49,7 @@ export async function saveServerConfig(patch: Partial<ServerConfig>): Promise<vo
   }
   const entries: Record<string, string> = {}
   if (patch.serverUrl !== undefined) entries[STORAGE_KEYS.serverUrl] = patch.serverUrl
-  if (patch.dataKey !== undefined) entries[STORAGE_KEYS.dataKey] = patch.dataKey
+  if (patch.dataKey !== undefined) entries[STORAGE_KEYS.dataKey] = patch.dataKey ?? ''
   await chrome.storage.local.set(entries)
   cached = next
 }
