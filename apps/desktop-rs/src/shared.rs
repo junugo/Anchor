@@ -85,6 +85,20 @@ pub struct SharedState {
     /// 托盘「写睡前意图」点击后由 fetch 线程写入今日意图内容（空串 = 无已写内容），
     /// sync loop 检测到后打开弹窗并预填，随即清空
     pub intent_today_prefill: Option<String>,
+    /// 当前是否已配对（daemon 启动/配对/保存设置/认证失败时写入）
+    pub paired: bool,
+    /// 配对失效（auth_failed / 4401）：true 时 sync loop 打开设置窗引导重新配对
+    pub pair_invalid: bool,
+    /// 最近一次配对操作结果（设置窗展示后由 wm take 清空）
+    pub pair_status: Option<PairStatus>,
+}
+
+/// 配对操作反馈（成功含服务器版本，失败含服务端错误文案）
+#[derive(Clone, Debug)]
+pub struct PairStatus {
+    pub ok: bool,
+    pub message: String,
+    pub server_version: Option<String>,
 }
 
 impl SharedState {

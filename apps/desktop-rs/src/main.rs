@@ -27,6 +27,7 @@ mod daemon;
 mod filelog;
 mod icon;
 mod offline;
+mod pair;
 mod shared;
 mod shutdown;
 mod state;

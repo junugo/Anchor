@@ -43,6 +43,8 @@ pub struct WindowManager {
     last_tooltip: RefCell<String>,
     /// 宵禁窗口上次刷新重绘/置顶的时间，避免锁屏/切后台后内容丢失
     last_curfew_refresh: Cell<Option<Instant>>,
+    /// 上次 pair_invalid 状态：上升沿时打开设置窗引导重新配对
+    last_pair_invalid: Cell<bool>,
     /// winddown 倒数归零后的本地升级截止时刻：服务器 T0 广播最晚 1 个轻量 tick
     /// （60s）到达，超过宽限仍未切换则本地升级 T0 打开宵禁窗口
     curfew_escalate_at: Cell<Option<Instant>>,
@@ -109,6 +111,8 @@ impl WindowManager {
                 let pos = PillPosition::from_index(s.get_pill_position());
                 pill_position.set(pos);
                 let data_key = s.get_data_key().trim().to_owned();
+                // 配对字段沿用现有配置，保存设置不覆盖 token/设备名
+                let prev = config::load();
                 let cfg = Config {
                     config_version: 1,
                     server_url: s.get_server_url().trim().to_owned(),
@@ -117,6 +121,9 @@ impl WindowManager {
                     notifications_enabled: s.get_notifications_enabled(),
                     pill_position: pos,
                     data_key: if data_key.is_empty() { None } else { Some(data_key) },
+                    token: prev.token,
+                    device_name: prev.device_name,
+                    paired_at: prev.paired_at,
                 };
                 let _ = tx.try_send(GuiCmd::SaveSettings(Box::new(cfg)));
                 // 保存确认：关闭位置示意窗
@@ -129,6 +136,37 @@ impl WindowManager {
                     if let Some(w2) = upgraded(&w2, "settings") {
                         w2.set_saved(false);
                     }
+                });
+            }
+        });
+
+        // ── 设置：发起配对 ──
+        settings.on_pair_clicked({
+            let w = settings.as_weak();
+            let tx = gui_cmd_tx.clone();
+            move || {
+                let Some(s) = upgraded(&w, "settings") else { return };
+                let code = s.get_pair_code().trim().to_owned();
+                if code.is_empty() {
+                    s.set_pair_status("请输入 8 位配对码".into());
+                    return;
+                }
+                let server_url = s.get_server_url().trim().to_owned();
+                if server_url.is_empty() {
+                    s.set_pair_status("请先填写服务器地址".into());
+                    return;
+                }
+                let device_name = s.get_device_name().trim().to_owned();
+                let device_name = if device_name.is_empty() {
+                    config::default_device_name()
+                } else {
+                    device_name
+                };
+                s.set_pair_status("配对中…".into());
+                let _ = tx.try_send(GuiCmd::PairRequest {
+                    server_url,
+                    code,
+                    device_name,
                 });
             }
         });
@@ -294,6 +332,7 @@ impl WindowManager {
             last_pill_text: RefCell::new(String::new()),
             last_tooltip: RefCell::new(String::new()),
             last_curfew_refresh: Cell::new(None),
+            last_pair_invalid: Cell::new(false),
             curfew_escalate_at: Cell::new(None),
             gui_cmd_tx,
         }
@@ -400,13 +439,26 @@ impl WindowManager {
 
     pub fn open_settings(&self) {
         let cfg = config::load();
-        self.settings.set_server_url(cfg.server_url.into());
+        self.settings.set_server_url(cfg.server_url.clone().into());
         self.settings
             .set_data_key(cfg.data_key.clone().unwrap_or_default().into());
         self.settings.set_autostart(cfg.autostart);
         self.settings.set_tracking_enabled(cfg.tracking_enabled);
         self.settings.set_notifications_enabled(cfg.notifications_enabled);
         self.settings.set_pill_position(cfg.pill_position.to_index());
+        // 配对区
+        let paired = cfg.is_paired();
+        self.settings.set_paired(paired);
+        let device_name = cfg
+            .device_name
+            .clone()
+            .unwrap_or_else(config::default_device_name);
+        self.settings.set_device_name(device_name.clone().into());
+        self.settings.set_pair_code("".into());
+        self.settings.set_pair_status("".into());
+        self.settings.set_paired_info(
+            format!("{} · {}", device_name, cfg.server_url).into(),
+        );
         self.settings.set_saved(false);
         // 防御：每次打开设置时示意窗从隐藏态开始
         hide_win(&self.preview, "pill-preview");
@@ -461,6 +513,42 @@ impl WindowManager {
                 self.show_toast("Anchor 配置错误", err);
             }
         }
+
+        // 配对操作反馈 → 设置窗状态文字
+        let pair_status = if let Ok(mut g) = self.shared.write() {
+            g.pair_status.take()
+        } else {
+            None
+        };
+        if let Some(st) = pair_status {
+            let text = match (&st.server_version, st.ok) {
+                (Some(ver), true) => format!("配对成功 · 服务器版本 {ver}"),
+                _ => st.message.clone(),
+            };
+            self.settings.set_pair_status(text.into());
+            self.settings.set_paired(st.ok);
+            if st.ok {
+                let cfg = config::load();
+                let device_name = cfg
+                    .device_name
+                    .clone()
+                    .unwrap_or_else(config::default_device_name);
+                self.settings.set_paired_info(
+                    format!("{} · {}", device_name, cfg.server_url).into(),
+                );
+            }
+        }
+
+        // 配对失效：托盘提示（daemon 已入 pending_notifications）+ 打开设置窗引导重新配对
+        let pair_invalid = self
+            .shared
+            .read()
+            .map(|g| g.pair_invalid)
+            .unwrap_or(false);
+        if pair_invalid && !self.last_pair_invalid.get() {
+            self.open_settings();
+        }
+        self.last_pair_invalid.set(pair_invalid);
 
         // 宵禁过期守护：expires_at 已过则本地解除（服务器离线兜底，不永久锁屏）
         if phase != SunsetPhase::Off && expires_at > 0 {

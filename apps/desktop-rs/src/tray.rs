@@ -264,6 +264,7 @@ unsafe fn show_context_menu(hwnd: HWND) {
             g.user_state.clone(),
             g.sunset_phase,
             g.target_bedtime_minutes,
+            g.paired,
         )
     }));
 
@@ -273,9 +274,11 @@ unsafe fn show_context_menu(hwnd: HWND) {
     };
 
     let status_line = match &snapshot {
-        Some((connected, config_error, user_state, _, _)) => {
+        Some((connected, config_error, user_state, _, _, paired)) => {
             if let Some(err) = config_error {
                 format!("配置错误 · {err}")
+            } else if !*paired {
+                "未配对 · 请在设置中配对".to_owned()
             } else {
                 let conn = if *connected { "已连接" } else { "未连接" };
                 let state = user_state
@@ -289,7 +292,7 @@ unsafe fn show_context_menu(hwnd: HWND) {
     };
     append_text(menu, &format!("Anchor · {status_line}"), false);
 
-    if let Some((_, _, _, phase, target)) = &snapshot {
+    if let Some((_, _, _, phase, target, _)) = &snapshot {
         if *phase != SunsetPhase::Off {
             let remaining = remaining_minutes(*target);
             append_text(menu, &format!("距就寝 {remaining} 分钟 · {}", phase.label()), false);
