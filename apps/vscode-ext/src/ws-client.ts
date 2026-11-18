@@ -43,7 +43,7 @@ export function onMessage(handler: MessageHandler): void {
 }
 
 export function connect(serverUrl: string, dataKey?: string | null): void {
-  if (dataKey) setDataKey(dataKey)
+  setDataKey(dataKey ?? '')
 
   // 若已有连接或重连计时器，先清理
   if (retryTimer) {
@@ -80,7 +80,7 @@ export function connect(serverUrl: string, dataKey?: string | null): void {
     if (retryCount < MAX_RETRIES) {
       retryCount++
       console.log(`[Anchor WS] disconnected, retry ${retryCount}/${MAX_RETRIES} in ${RETRY_DELAY_MS / 1000}s`)
-      retryTimer = setTimeout(() => connect(serverUrl), RETRY_DELAY_MS)
+      retryTimer = setTimeout(() => connect(serverUrl, _dataKey), RETRY_DELAY_MS)
     } else {
       console.warn('[Anchor WS] max retries reached, giving up')
     }

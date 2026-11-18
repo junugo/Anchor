@@ -16,7 +16,7 @@ export function createAnchorApiClient(baseUrl: string, options: ApiClientOptions
   const http = createApiClient(baseUrl, options)
 
   return {
-    // ─── 设备配对 / 版本 ───鈹€鈹€鈹€
+    // ─── 设备配对 / 版本 ───
     /** 设备配对：用配对码换取设备令牌与数据密钥 */
     pair(
       code: string,
