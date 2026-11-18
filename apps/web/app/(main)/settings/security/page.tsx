@@ -122,6 +122,7 @@ function PairSection() {
   const [expiresAt, setExpiresAt] = useState<number | null>(null)
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -132,7 +133,11 @@ function PairSection() {
 
   async function generate() {
     const res = await fetch('/api/pair/codes', { method: 'POST' })
-    if (!res.ok) return
+    if (!res.ok) {
+      setError(res.status === 401 ? '登录已过期，请重新登录后再试' : '生成失败，请重试')
+      return
+    }
+    setError(null)
     const body = await res.json() as { code: string; expiresAt: number }
     setCode(body.code)
     setExpiresAt(body.expiresAt)
@@ -187,17 +192,25 @@ function PairSection() {
       <button className="btn btn-primary" onClick={generate} style={{ alignSelf: 'flex-start' }}>
         生成配对码
       </button>
+      {error && (
+        <p style={{ fontSize: '12px', color: 'var(--color-curfew, #cf222e)', margin: 0 }}>{error}</p>
+      )}
     </Section>
   )
 }
 
 function DevicesSection() {
   const [devices, setDevices] = useState<DeviceItem[] | null>(null)
+  const [error, setError] = useState(false)
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
 
   async function load() {
     const res = await fetch('/api/devices')
-    if (!res.ok) return
+    if (!res.ok) {
+      setError(true)
+      return
+    }
+    setError(false)
     const body = await res.json() as { devices: DeviceItem[] }
     setDevices(body.devices)
     setNow(Math.floor(Date.now() / 1000))
@@ -213,7 +226,9 @@ function DevicesSection() {
 
   return (
     <Section title="已配对设备">
-      {devices === null ? (
+      {error ? (
+        <p style={{ fontSize: '12px', color: 'var(--color-curfew, #cf222e)', margin: 0 }}>加载失败，请刷新重试</p>
+      ) : devices === null ? (
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>加载中…</p>
       ) : devices.length === 0 ? (
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>暂无已配对设备</p>
