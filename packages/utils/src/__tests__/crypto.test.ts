@@ -8,7 +8,7 @@ import {
   unwrapBody,
 } from '../crypto'
 
-const TEST_KEY = 'anchor-dev-data-key'
+const TEST_KEY = '0123456789abcdef'.repeat(4)
 
 describe('crypto（AES-256-GCM 上行加密）', () => {
   it('roundtrip：加密后能解出原值', async () => {
