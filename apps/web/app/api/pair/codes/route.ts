@@ -2,6 +2,7 @@
 // 明文码只在响应中出现一次，库存 sha256；有效期 300s；同机允许同时存在多张未消费码（YAGNI，各自独立过期）
 import { randomInt, createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { lt } from 'drizzle-orm'
 import { pairCodes } from '@anchor/db'
 import { getDb } from '@/lib/db'
 import { requireSession } from '@/lib/auth/request'
@@ -29,7 +30,11 @@ export async function POST(req: NextRequest) {
   const now = Math.floor(Date.now() / 1000)
   const expiresAt = now + CODE_TTL_SECONDS
 
-  getDb().insert(pairCodes).values({
+  const db = getDb()
+  // 惰性清理：物理删除已过期超过一天的历史码（任务 7 审查遗留，顺带一行，无日志）
+  db.delete(pairCodes).where(lt(pairCodes.expires_at, now - 86400)).run()
+
+  db.insert(pairCodes).values({
     code_hash: codeHash,
     expires_at: expiresAt,
     attempts: 0,

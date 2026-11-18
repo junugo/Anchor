@@ -1,9 +1,10 @@
 ﻿import Link from 'next/link'
-import { ChevronRight, Sunset, Clock, Download, GraduationCap } from 'lucide-react'
+import { ChevronRight, Sunset, Clock, Download, GraduationCap, ShieldCheck } from 'lucide-react'
 
 const ITEMS = [
   { href: '/settings/sunset', icon: Sunset,   label: '数字宵禁',   desc: '入睡前逐步降低屏幕刺激' },
   { href: '/settings/school', icon: GraduationCap, label: '学校作息', desc: '在校时段无信号记为「在校」，不干预' },
+  { href: '/settings/security', icon: ShieldCheck, label: '安全', desc: '修改密码、配对新设备、管理已配对设备' },
   { href: '/capsules',        icon: Clock,     label: '时间胶囊',   desc: '给未来的自己留言' },
   { href: '/api/data/export', icon: Download,  label: '导出全部数据', desc: 'JSON 格式备份' },
 ]
