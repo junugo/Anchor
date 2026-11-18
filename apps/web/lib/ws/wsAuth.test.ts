@@ -21,6 +21,17 @@ let port = 0
 /** 测试用短认证窗口，避免等 10s */
 const AUTH_TIMEOUT_MS = 300
 
+/**
+ * 环境病理说明（Windows 同进程 loopback 特异性）：
+ * 认证成功后服务器连发 auth_ok + config/stage/state 多帧，同进程 loopback 下
+ * 「首帧后 await 再发帧」会使帧成批滞留（秒级）；生产为 Linux VPS 跨进程/跨机，无此现象。
+ * 故本文件认证用例的 waitFor 超时放宽到 10s，并统一 terminate 客户端连接。
+ */
+const DELIVERY_TIMEOUT_MS = 10_000
+
+/** 本文件创建的所有客户端连接，after() 里统一 terminate */
+const testClients = new Set<WebSocket>()
+
 before(async () => {
   const db = initDb()
   initSunsetConfig(db)
@@ -31,7 +42,13 @@ before(async () => {
 })
 
 after(async () => {
-  // 强制断开残余连接，server.close 才会回调（node 18.2+）
+  // 先 terminate 所有客户端连接（升级后的 WS 连接不归 closeAllConnections 管，
+  // 不 terminate 的话 server.close 会等连接自然结束，after() 挂起 ~110s）
+  for (const ws of testClients) {
+    try { ws.terminate() } catch { /* 已断开 */ }
+  }
+  testClients.clear()
+  // 关掉 HTTP 层的 keep-alive 连接（node 18.2+；类型上可能不存在，防御式调用）
   ;(server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.()
   await new Promise<void>(resolve => server.close(() => resolve()))
   closeDb(getDb())
@@ -41,6 +58,7 @@ after(async () => {
 function connect(): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+    testClients.add(ws)
     ws.on('open', () => resolve(ws))
     ws.on('error', reject)
   })
@@ -111,7 +129,8 @@ test('认证前发其他消息被忽略（连接不被关，直到超时）', as
 test('正确 token → auth_ok + 后续消息可达 + last_seen_at 刷新', async () => {
   const token = seedDevice('测试设备')
   const ws = await connect()
-  const okP = waitFor<{ type: string; deviceId?: number }>(ws, m => m.type === 'auth_ok')
+  // 超时放宽到 10s：Windows 同进程 loopback 帧成批滞留的环境病理，生产无此问题（见文件头注释）
+  const okP = waitFor<{ type: string; deviceId?: number }>(ws, m => m.type === 'auth_ok', DELIVERY_TIMEOUT_MS)
   ws.send(JSON.stringify({ type: 'auth', token }))
   const ok = await okP
   assert.equal(ok.deviceId, 1)
@@ -122,7 +141,7 @@ test('正确 token → auth_ok + 后续消息可达 + last_seen_at 刷新', asyn
   assert.ok(row.last_seen_at! > 0)
 
   // 认证后进 clients：广播 ping 能到达
-  const pingP = waitFor(ws, m => m.type === 'ping')
+  const pingP = waitFor(ws, m => m.type === 'ping', DELIVERY_TIMEOUT_MS)
   const { broadcast } = await import('./server')
   broadcast({ type: 'ping' })
   await pingP
