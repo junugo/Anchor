@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
 import test from 'node:test'
 import { eq } from 'drizzle-orm'
 import {
   authCredentials, closeDb, createDb, devices, pairCodes, sessions, settings,
 } from '@anchor/db'
-import { tempDbPath } from './testUtils'
+import { cleanupDir, tempDbPath } from './testUtils'
 
 // 期望的列定义：name → { type, notnull, dflt_value }
 const EXPECTED_AUTH_TABLES: Record<string, Record<string, { type: string; notnull: number; dflt?: string | null }>> = {
@@ -44,14 +43,6 @@ const EXPECTED_AUTH_TABLES: Record<string, Record<string, { type: string; notnul
     consumed_at: { type: 'INTEGER', notnull: 0 },
     created_at: { type: 'INTEGER', notnull: 1 },
   },
-}
-
-function cleanupDir(dir: string) {
-  for (let i = 0; i < 20; i++) {
-    try { fs.rmSync(dir, { recursive: true, force: true }); return } catch { /* Windows 文件句柄释放有延迟，重试 */ }
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
-  }
-  fs.rmSync(dir, { recursive: true, force: true })
 }
 
 type RawSqlite = { prepare: (sql: string) => { all: () => Array<{ name: string; type: string; notnull: number; dflt_value: string | null; pk: number }>; get: () => unknown; run: (...args: unknown[]) => void }; exec: (sql: string) => void }

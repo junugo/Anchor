@@ -1,18 +1,9 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
 import test from 'node:test'
 import { eq } from 'drizzle-orm'
 import { closeDb, createDb, sessions, type Db } from '@anchor/db'
-import { tempDbPath } from '../testUtils'
+import { cleanupDir, tempDbPath } from '../testUtils'
 import { cleanupExpiredSessions, createSession, destroySession, verifySession } from './session'
-
-function cleanupDir(dir: string) {
-  for (let i = 0; i < 20; i++) {
-    try { fs.rmSync(dir, { recursive: true, force: true }); return } catch { /* Windows 句柄释放有延迟，重试 */ }
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
-  }
-  fs.rmSync(dir, { recursive: true, force: true })
-}
 
 function withDb(name: string, fn: (db: Db) => void) {
   const { dir, dbPath } = tempDbPath(name)

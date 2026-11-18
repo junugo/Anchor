@@ -37,6 +37,11 @@ export async function verifyPassword(password: string, stored: string): Promise<
     const salt = Buffer.from(parts[4], 'hex')
     const expected = Buffer.from(parts[5], 'hex')
     if (!Number.isInteger(n) || !Number.isInteger(r) || !Number.isInteger(p)) return false
+    // 防御性上限：DB 被篡改时避免登录路径被巨量 scrypt 计算 DoS
+    if (n <= 1 || n > 2 ** 20 || (n & (n - 1)) !== 0) return false // scrypt 要求 N 为 2 的幂
+    if (r < 1 || r > 64) return false
+    if (p < 1 || p > 16) return false
+    if (expected.length < 16 || expected.length > 128) return false
     if (salt.length === 0 || expected.length === 0) return false
     const derived = await scrypt(password, salt, expected.length, { N: n, r, p })
     return timingSafeEqual(derived, expected)

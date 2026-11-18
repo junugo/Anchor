@@ -40,3 +40,12 @@ test('rate-limit：reset 清空全部计数', () => {
   rl.reset()
   assert.equal(rl.limit('k', 1, 60_000), true)
 })
+
+test('rate-limit：键超过上限时整表清空（防键滞留）', () => {
+  const rl = createRateLimiter()
+  // 塞满 1000 个键后再来新键 → 触发清空，新键放行
+  for (let i = 0; i < 1000; i++) assert.equal(rl.limit(`old:${i}`, 1, 60_000), true)
+  assert.equal(rl.limit('login:a', 1, 60_000), true) // 触发 clear 后自身重建
+  // 旧键已随清空重置
+  assert.equal(rl.limit('old:0', 1, 60_000), true)
+})

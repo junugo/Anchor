@@ -13,6 +13,7 @@ export interface RateLimiter {
 
 export function createRateLimiter(): RateLimiter {
   const buckets = new Map<string, Bucket>()
+  const MAX_KEYS = 1000 // 键滞留兜底：超过即整表清空（公网部署防内存膨胀）
 
   return {
     limit(key: string, limit: number, windowMs: number): boolean {
@@ -20,6 +21,7 @@ export function createRateLimiter(): RateLimiter {
       const bucket = buckets.get(key)
       // 窗口已过期则惰性重建（顺带完成清理，不必另起定时器）
       if (!bucket || bucket.resetAt <= now) {
+        if (buckets.size >= MAX_KEYS) buckets.clear()
         buckets.set(key, { count: 1, resetAt: now + windowMs })
         return true
       }
