@@ -95,6 +95,11 @@ function markAuthInvalid(): void {
   authInvalidHandlers.forEach((h) => h())
 }
 
+/**
+ * 建立 WebSocket 连接（清理旧连接与重连计时器）。
+ * @param options 连接选项（token/dataKey）
+ * @deprecated 旧签名 connect(url, dataKey: string) 仍兼容，新代码请改用 ConnectOptions
+ */
 export function connect(serverUrl: string, options: ConnectOptions | string | null = {}): void {
   // 兼容旧签名 connect(url, dataKey)
   const opts: ConnectOptions = typeof options === 'string' ? { dataKey: options } : (options ?? {})

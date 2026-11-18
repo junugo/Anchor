@@ -107,4 +107,29 @@ describe('ws-client 认证行为', () => {
     vi.advanceTimersByTime(5_000)
     expect(factorySpy).toHaveBeenCalled()
   })
+
+  it('兼容旧字符串签名 connect(url, dataKey)', () => {
+    connect('ws://x/ws', 'legacy-key')
+    fake.emit('open')
+    // 旧签名无 token：不发 auth，连接正常建立
+    expect(fake.sent).toHaveLength(0)
+    expect(isAuthInvalid()).toBe(false)
+  })
+
+  it('重连后 open 仍首条发送带原 token 的 auth', () => {
+    const instances: FakeWs[] = []
+    setWsFactory(() => {
+      const f = new FakeWs()
+      instances.push(f)
+      return f as unknown as WebSocket
+    })
+    connect('ws://x/ws', { token: 'tok-keep', dataKey: 'dk' })
+    instances[0].emit('open')
+    instances[0].emit('close', 1006)
+    vi.advanceTimersByTime(5_000)
+    expect(instances).toHaveLength(2)
+    instances[1].emit('open')
+    expect(instances[1].sent).toHaveLength(1)
+    expect(JSON.parse(instances[1].sent[0])).toEqual({ type: 'auth', token: 'tok-keep' })
+  })
 })

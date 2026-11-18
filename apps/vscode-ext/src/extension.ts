@@ -3,7 +3,7 @@ import * as vscode from 'vscode'
 import type { BehaviorSource, BehaviorEventType, WsServerMessage, UserState } from '@anchor/types'
 import { STATE_LABELS, STATE_COLOR_TOKENS } from '@anchor/utils'
 import { lightColors } from '@anchor/ui/tokens'
-import { connect, disconnect, isConnected, send, onMessage, onReconnect, onAuthInvalid, onAuthOk, setConfigError, resetAuthInvalid } from './ws-client'
+import { connect, disconnect, isConnected, send, onMessage, onReconnect, onAuthInvalid, onAuthOk, setConfigError, resetAuthInvalid, isAuthInvalid } from './ws-client'
 import { createOfflineQueue } from './offline-queue'
 import { createSecretsApi, shouldConnect, type SecretsApi } from './secrets'
 import { requestPairing } from './pair'
@@ -32,6 +32,8 @@ let _serverVersion = ''
 let _secrets: SecretsApi | null = null
 let _extensionContext: vscode.ExtensionContext | null = null
 let _queue: ReturnType<typeof createOfflineQueue> | null = null
+// 最近一次发起连接所用的 token：用于「失效闩未解除且 token 未换」时跳过 connect
+let _lastConnectToken: string | null = null
 
 // 最近一次服务器推断的用户状态（state:update 写入），驱动 StatusBar 状态色
 let _userState: UserState | null = null
@@ -84,19 +86,37 @@ async function reconnectWithSecrets(): Promise<void> {
   if (!_secrets) return
   const cfg = vscode.workspace.getConfiguration('anchor')
   const serverUrl = cfg.get<string>('serverUrl')?.trim() || 'http://localhost:4000'
-  const [token, dataKey] = await Promise.all([_secrets.getToken(), _secrets.getDataKey()])
+  // 钥匙串故障时不能挂起激活/配置变更流程：读失败按未配对处理
+  let token: string | null = null
+  let dataKey: string | null = null
+  try {
+    ;[token, dataKey] = await Promise.all([_secrets.getToken(), _secrets.getDataKey()])
+  } catch (err) {
+    console.warn('[Anchor] 读取配对凭据失败（钥匙串故障），按未配对处理：', err)
+  }
 
   if (!shouldConnect(token)) {
     // 未配对：不启动 WS、不上报，仅状态栏引导
     disconnect()
     _queue = null
+    _lastConnectToken = null
     _pairingState = 'unpaired'
     updateStatusBarState()
     console.log('[Anchor] 未配对：跳过 WS 连接与行为上报')
     return
   }
 
+  // 失效闩未解除且 token 未换：跳过 connect，防配置变更反复弹「配对已失效」
+  // （repair 会先 resetAuthInvalid，不受此检查影响）
+  if (isAuthInvalid() && token === _lastConnectToken) {
+    _pairingState = 'invalid'
+    updateStatusBarState()
+    console.log('[Anchor] 认证失效闩未解除且 token 未变，跳过重连')
+    return
+  }
+
   _pairingState = 'paired'
+  _lastConnectToken = token
   _queue = createOfflineQueue(_extensionContext!, serverUrl, dataKey)
   connect(serverUrl.replace(/^http/, 'ws') + '/ws', { dataKey, token })
   updateStatusBarState()
@@ -139,16 +159,28 @@ async function runPairingFlow(): Promise<void> {
   }
 
   // 成功：写 secrets + 更新 serverUrl 设置（工作区级）+ 复位失效闩 + 重连
-  await _secrets.setPaired({
-    token: result.token,
-    dataKey: result.dataKey,
-    deviceName: deviceName.trim() || defaultName,
-    pairedAt: Date.now(),
-  })
+  try {
+    await _secrets.setPaired({
+      token: result.token,
+      dataKey: result.dataKey,
+      deviceName: deviceName.trim() || defaultName,
+      pairedAt: Date.now(),
+    })
+  } catch (err) {
+    console.warn('[Anchor] 配对凭据写入失败（钥匙串故障）：', err)
+    vscode.window.showErrorMessage('Anchor 配对凭据保存失败，请重试配对')
+    return
+  }
   _deviceName = deviceName.trim() || defaultName
   _serverVersion = result.serverVersion
   const base = serverUrl.trim().replace(/\/+$/, '') || 'http://localhost:4000'
-  await vscode.workspace.getConfiguration('anchor').update('serverUrl', base, vscode.ConfigurationTarget.Workspace)
+  try {
+    await vscode.workspace.getConfiguration('anchor').update('serverUrl', base, vscode.ConfigurationTarget.Workspace)
+  } catch (err) {
+    console.warn('[Anchor] 服务器地址写入设置失败：', err)
+    vscode.window.showErrorMessage('Anchor 服务器地址保存失败，请在设置中手动配置 anchor.serverUrl')
+    return
+  }
   vscode.window.showInformationMessage(`Anchor 配对成功：${_deviceName}`)
 
   resetAuthInvalid()
@@ -158,7 +190,14 @@ async function runPairingFlow(): Promise<void> {
 export async function activate(context: vscode.ExtensionContext) {
   _extensionContext = context
   _secrets = createSecretsApi(context.secrets)
-  _deviceName = (await _secrets.getDeviceName()) || os.hostname() || 'VS Code'
+  // 设备名：优先 secrets 中上次配对名，钥匙串故障时回退 hostname，activate 绝不能挂
+  let savedDeviceName: string | null = null
+  try {
+    savedDeviceName = await _secrets.getDeviceName()
+  } catch (err) {
+    console.warn('[Anchor] 读取设备名失败（钥匙串故障），回退 hostname：', err)
+  }
+  _deviceName = savedDeviceName || os.hostname() || 'VS Code'
 
   // 创建状态栏项
   _statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)

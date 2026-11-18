@@ -41,7 +41,11 @@ export function createSecretsApi(secrets: SecretStorageLike) {
       return (await secrets.get(KEYS.deviceName)) ?? null
     },
 
-    /** 写入配对成功的完整凭据（覆盖旧值） */
+    /**
+     * 写入配对成功的完整凭据（覆盖旧值）。
+     * 注意：SecretStorage 无事务，四键顺序写，中途钥匙串故障可能残留部分新/旧键；
+     * 残留不影响安全（均为本机加密存储），重新配对会全量覆盖修复。
+     */
     async setPaired(cred: PairedCredentials): Promise<void> {
       await secrets.store(KEYS.token, cred.token)
       await secrets.store(KEYS.dataKey, cred.dataKey)
