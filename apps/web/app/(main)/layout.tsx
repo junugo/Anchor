@@ -6,6 +6,7 @@ import { InterventionToast } from '../components/InterventionToast'
 import { SleepConfirmDialog } from '../components/SleepConfirmDialog'
 import { ContextSwitchDialog } from '../components/ContextSwitchDialog'
 import { AuthGate } from '../components/AuthGate'
+import { UpdateBanner } from '../components/UpdateBanner'
 
 /**
  * (main) 路由组 layout：认证守卫 + 导航栏 + AnchorProvider + 宵禁覆盖层。
@@ -17,7 +18,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <AnchorProvider>
         <div className="shell">
           <NavSidebar />
-          <main className="main-content">{children}</main>
+          <main className="main-content">
+            <UpdateBanner />
+            {children}
+          </main>
         </div>
         <SunsetOverlay />
         <InterventionToast />
