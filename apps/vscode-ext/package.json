@@ -33,16 +33,19 @@
         "anchor.serverUrl": {
           "type": "string",
           "default": "http://localhost:4000",
-          "description": "Anchor 服务器地址"
-        },
-        "anchor.dataKey": {
-          "type": "string",
-          "default": "",
-          "description": "上行行为数据加密密钥（须与服务器 ANCHOR_DATA_KEY 一致；留空使用内置开发密钥，仅限本地开发）"
+          "description": "Anchor 服务器地址（配对成功后自动写入工作区设置）"
         }
       }
     },
     "commands": [
+      {
+        "command": "anchor.signin",
+        "title": "Anchor: 配对（输入服务器地址与配对码）"
+      },
+      {
+        "command": "anchor.repair",
+        "title": "Anchor: 重新配对（覆盖旧设备凭证）"
+      },
       {
         "command": "anchor.helloWorld",
         "title": "Anchor: Hello World"

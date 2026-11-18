@@ -1,9 +1,12 @@
+import * as os from 'os'
 import * as vscode from 'vscode'
 import type { BehaviorSource, BehaviorEventType, WsServerMessage, UserState } from '@anchor/types'
 import { STATE_LABELS, STATE_COLOR_TOKENS } from '@anchor/utils'
 import { lightColors } from '@anchor/ui/tokens'
-import { connect, disconnect, isConnected, send, onMessage, onReconnect, setConfigError } from './ws-client'
+import { connect, disconnect, isConnected, send, onMessage, onReconnect, onAuthInvalid, onAuthOk, setConfigError, resetAuthInvalid } from './ws-client'
 import { createOfflineQueue } from './offline-queue'
+import { createSecretsApi, shouldConnect, type SecretsApi } from './secrets'
+import { requestPairing } from './pair'
 import { inferTerminalCategory } from './terminal'
 
 let activityCount = 0
@@ -18,8 +21,17 @@ const IDLE_THRESHOLD_SEC = IDLE_THRESHOLD_MS / 1000
 
 const SOURCE: BehaviorSource = 'vscode'
 
-// 状态栏项，用于显示 sunset 阶段
+// 状态栏项，用于显示 sunset 阶段与配对状态
 let _statusBarItem: vscode.StatusBarItem | null = null
+
+// 配对状态：unpaired=未配对（引导） / paired=正常 / invalid=配对失效（需重新配对）
+type PairingState = 'unpaired' | 'paired' | 'invalid'
+let _pairingState: PairingState = 'unpaired'
+let _deviceName = ''
+let _serverVersion = ''
+let _secrets: SecretsApi | null = null
+let _extensionContext: vscode.ExtensionContext | null = null
+let _queue: ReturnType<typeof createOfflineQueue> | null = null
 
 // 最近一次服务器推断的用户状态（state:update 写入），驱动 StatusBar 状态色
 let _userState: UserState | null = null
@@ -30,7 +42,27 @@ let _sunsetTooltip = 'Anchor 节律守护中'
 // 色值真源 @anchor/ui tokens；VS Code 状态栏多为主题深底，统一用浅色色值）
 function updateStatusBarState(): void {
   if (!_statusBarItem) return
-  
+
+  // 未配对：引导点击登录，不参与节律着色
+  if (_pairingState === 'unpaired') {
+    _statusBarItem.text = '$(plug) Anchor 未配对'
+    _statusBarItem.tooltip = '点击配对 Anchor（服务器地址 + 配对码）'
+    _statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningBackground')
+    _statusBarItem.command = 'anchor.signin'
+    return
+  }
+
+  // 配对失效：引导重新配对
+  if (_pairingState === 'invalid') {
+    _statusBarItem.text = '$(warning) Anchor 配对失效'
+    _statusBarItem.tooltip = '设备凭证已被服务器拒绝，点击重新配对'
+    _statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorBackground')
+    _statusBarItem.command = 'anchor.repair'
+    return
+  }
+
+  _statusBarItem.command = undefined
+
   // 配置错误状态
   if (_configError) {
     _statusBarItem.text = '$(warning) Anchor 配置错误'
@@ -38,19 +70,95 @@ function updateStatusBarState(): void {
     _statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningBackground')
     return
   }
-  
+
   const token = _userState ? STATE_COLOR_TOKENS[_userState] : null
   _statusBarItem.color = token ? lightColors[token] : undefined
   const stateLabel = _userState ? ` · ${STATE_LABELS[_userState]}` : ''
-  _statusBarItem.tooltip = _sunsetTooltip + stateLabel
+  const deviceInfo = _deviceName ? ` · ${_deviceName}` : ''
+  const versionInfo = _serverVersion ? ` · 服务器版本 ${_serverVersion}` : ''
+  _statusBarItem.tooltip = _sunsetTooltip + stateLabel + deviceInfo + versionInfo
 }
 
-export function activate(context: vscode.ExtensionContext) {
-  // 读取 VS Code 设置中的服务器地址与数据密钥（未配置时为 null，由加密调用处显式拒绝上报）
+/** 用 secrets 中最新凭据建立连接（无 token 时停连并走未配对引导） */
+async function reconnectWithSecrets(): Promise<void> {
+  if (!_secrets) return
   const cfg = vscode.workspace.getConfiguration('anchor')
   const serverUrl = cfg.get<string>('serverUrl')?.trim() || 'http://localhost:4000'
-  const dataKey = cfg.get<string>('dataKey')?.trim() || null
-  const wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws'
+  const [token, dataKey] = await Promise.all([_secrets.getToken(), _secrets.getDataKey()])
+
+  if (!shouldConnect(token)) {
+    // 未配对：不启动 WS、不上报，仅状态栏引导
+    disconnect()
+    _queue = null
+    _pairingState = 'unpaired'
+    updateStatusBarState()
+    console.log('[Anchor] 未配对：跳过 WS 连接与行为上报')
+    return
+  }
+
+  _pairingState = 'paired'
+  _queue = createOfflineQueue(_extensionContext!, serverUrl, dataKey)
+  connect(serverUrl.replace(/^http/, 'ws') + '/ws', { dataKey, token })
+  updateStatusBarState()
+}
+
+/** 配对流程：signin 与 repair 共用（repair 为覆盖旧凭据的重新配对语义） */
+async function runPairingFlow(): Promise<void> {
+  if (!_secrets) return
+  const cfg = vscode.workspace.getConfiguration('anchor')
+  const defaultUrl = cfg.get<string>('serverUrl')?.trim() || 'http://localhost:4000'
+
+  const serverUrl = await vscode.window.showInputBox({
+    title: 'Anchor 配对（1/3）：服务器地址',
+    value: defaultUrl,
+    placeHolder: 'http://localhost:4000',
+    ignoreFocusOut: true,
+  })
+  if (serverUrl === undefined) return
+
+  const code = await vscode.window.showInputBox({
+    title: 'Anchor 配对（2/3）：配对码',
+    placeHolder: '在 dashboard 设置页生成配对码',
+    ignoreFocusOut: true,
+  })
+  if (code === undefined) return
+
+  const defaultName = _deviceName || os.hostname() || 'VS Code'
+  const deviceName = await vscode.window.showInputBox({
+    title: 'Anchor 配对（3/3）：设备名',
+    value: defaultName,
+    ignoreFocusOut: true,
+  })
+  if (deviceName === undefined) return
+
+  const clientVersion = (_extensionContext?.extension.packageJSON as { version?: string })?.version ?? '0.0.0'
+  const result = await requestPairing(serverUrl, code, deviceName.trim() || defaultName, clientVersion)
+  if (!result.ok) {
+    vscode.window.showErrorMessage(`Anchor 配对失败：${result.error}`)
+    return
+  }
+
+  // 成功：写 secrets + 更新 serverUrl 设置（工作区级）+ 复位失效闩 + 重连
+  await _secrets.setPaired({
+    token: result.token,
+    dataKey: result.dataKey,
+    deviceName: deviceName.trim() || defaultName,
+    pairedAt: Date.now(),
+  })
+  _deviceName = deviceName.trim() || defaultName
+  _serverVersion = result.serverVersion
+  const base = serverUrl.trim().replace(/\/+$/, '') || 'http://localhost:4000'
+  await vscode.workspace.getConfiguration('anchor').update('serverUrl', base, vscode.ConfigurationTarget.Workspace)
+  vscode.window.showInformationMessage(`Anchor 配对成功：${_deviceName}`)
+
+  resetAuthInvalid()
+  await reconnectWithSecrets()
+}
+
+export async function activate(context: vscode.ExtensionContext) {
+  _extensionContext = context
+  _secrets = createSecretsApi(context.secrets)
+  _deviceName = (await _secrets.getDeviceName()) || os.hostname() || 'VS Code'
 
   // 创建状态栏项
   _statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
@@ -60,21 +168,44 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(_statusBarItem)
 
   // 连接 Anchor 服务器（WS 直发；断线入队，重连后批量补发）
-  _queue = createOfflineQueue(context, serverUrl, dataKey)
   onReconnect(() => {
     void _queue?.flush()
   })
-  connect(wsUrl, dataKey)
+  await reconnectWithSecrets()
 
-  // 设置变更：重建离线队列并按新地址/密钥重连（connect 内部清理旧连接与重连计时器）
+  // 配对命令：signin（未配对引导）与 repair（重新配对，覆盖旧凭据）
+  context.subscriptions.push(
+    vscode.commands.registerCommand('anchor.signin', () => runPairingFlow()),
+    vscode.commands.registerCommand('anchor.repair', () => runPairingFlow()),
+  )
+
+  // 认证失效：状态栏置「配对失效」，引导重新配对（ws-client 已停重连风暴）
+  onAuthInvalid(() => {
+    _pairingState = 'invalid'
+    _userState = null
+    updateStatusBarState()
+    void vscode.window
+      .showWarningMessage('Anchor 配对已失效', '重新配对')
+      .then((choice) => {
+        if (choice === '重新配对') {
+          void vscode.commands.executeCommand('anchor.repair')
+        }
+      })
+  })
+
+  // 认证成功（重新配对后首连）：清除失效态
+  onAuthOk(() => {
+    if (_pairingState === 'invalid') {
+      _pairingState = 'paired'
+      updateStatusBarState()
+    }
+  })
+
+  // 服务器地址变更：按 secrets 中凭据重连（密钥已迁 SecretStorage，不再监听 dataKey 设置）
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e.affectsConfiguration('anchor.serverUrl') && !e.affectsConfiguration('anchor.dataKey')) return
-      const nextCfg = vscode.workspace.getConfiguration('anchor')
-      const nextUrl = nextCfg.get<string>('serverUrl')?.trim() || 'http://localhost:4000'
-      const nextKey = nextCfg.get<string>('dataKey')?.trim() || null
-      _queue = createOfflineQueue(context, nextUrl, nextKey)
-      connect(nextUrl.replace(/^http/, 'ws') + '/ws', nextKey)
+      if (!e.affectsConfiguration('anchor.serverUrl')) return
+      void reconnectWithSecrets()
     }),
   )
 
@@ -262,7 +393,7 @@ function handleServerMessage(msg: WsServerMessage): void {
         vscode.window.showErrorMessage(`Anchor: ${msg.message}`)
         _configError = msg.message
         setConfigError(msg.message)
-        updateStatusBar()
+        updateStatusBarState()
       }
       break
     }
@@ -322,7 +453,7 @@ function showContextSwitchInput(promptId: string, timeoutSeconds: number, placeh
     // 首次输入：上报接管信号（仅一次），服务器广播 typing 关闭其他端
     if (!handle.inputSent && qp.value) {
       handle.inputSent = true
-      send({ type: 'context_switch:input', prompt_id: promptId, source: 'vscode' })
+      send({ type: 'context_switch:input', prompt_id: promptId })
     }
   })
   qp.onDidAccept(() => {
