@@ -84,11 +84,11 @@ test('V2.0 阶段 1a：新库初始化后 5 张认证表存在且字段正确', 
       }
     }
 
-    // 唯一索引存在
+    // 唯一索引存在（内联 UNIQUE 约束产生 sqlite_autoindex_* 自动索引）
     const sessionIdx = sqlite.prepare(`PRAGMA index_list(sessions)`).all() as unknown as Array<{ name: string; unique: number }>
-    assert.ok(sessionIdx.some(i => i.name === 'idx_sessions_token_hash' && i.unique === 1))
+    assert.ok(sessionIdx.some(i => i.unique === 1), 'sessions 应有唯一索引')
     const deviceIdx = sqlite.prepare(`PRAGMA index_list(devices)`).all() as unknown as Array<{ name: string; unique: number }>
-    assert.ok(deviceIdx.some(i => i.name === 'idx_devices_token_hash' && i.unique === 1))
+    assert.ok(deviceIdx.some(i => i.unique === 1), 'devices 应有唯一索引')
   } finally {
     closeDb(db)
     cleanupDir(dir)

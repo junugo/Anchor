@@ -367,21 +367,19 @@ export function createDb(dbPath: string) {
     )`,
     `CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      token_hash TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL
     )`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions (token_hash)`,
     `CREATE TABLE IF NOT EXISTS devices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      token_hash TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
       client_version TEXT,
       created_at INTEGER NOT NULL,
       last_seen_at INTEGER,
       revoked_at INTEGER
     )`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_token_hash ON devices (token_hash)`,
     `CREATE TABLE IF NOT EXISTS pair_codes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code_hash TEXT NOT NULL,
