@@ -227,6 +227,22 @@
     <string name="notif_accessibility_lost_title">无障碍服务已失效</string>
     <string name="notif_accessibility_lost_text">Anchor 的无障碍服务被系统关闭了。点击这里前往重新开启，否则宵禁拦截将无法工作。</string>
 
+    <!-- ─── 配对 pair_ ─────────────────────────────────────────── -->
+    <string name="pair_welcome_title">欢迎使用 Anchor</string>
+    <string name="pair_welcome_desc">在服务器管理界面生成配对码，填入后完成设备配对。配对后行为数据才会开始上报。</string>
+    <string name="pair_code_label">配对码</string>
+    <string name="pair_code_hint">服务器设置页生成的一次性 8 位配对码</string>
+    <string name="pair_device_name_label">设备名</string>
+    <string name="pair_btn">配对</string>
+    <string name="pair_pairing">配对中…</string>
+    <string name="pair_success_format">配对成功 · 服务器版本 %1$s</string>
+    <string name="pair_fail_format">配对失败：%1$s</string>
+    <string name="pair_status_format">已配对 · %1$s</string>
+    <string name="pair_repair">重新配对</string>
+    <string name="pair_repair_cancel">取消</string>
+    <string name="notif_pair_invalid_title">Anchor 配对已失效</string>
+    <string name="notif_pair_invalid_text">Anchor 配对已失效，请打开应用重新配对。</string>
+
     <string name="notif_intent_title">记录当前意图？</string>
     <string name="notif_intent_btn_record">记录</string>
     <string name="notif_intent_btn_skip">稍后</string>

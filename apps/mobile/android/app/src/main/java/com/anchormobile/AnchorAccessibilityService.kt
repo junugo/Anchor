@@ -87,6 +87,8 @@ class AnchorAccessibilityService : AccessibilityService() {
 
     private fun requestClassification(packageName: String) {
         val prefs = getSharedPreferences("anchor", MODE_PRIVATE)
+        // 未配对不上报：分类请求跳过，等配对成功后再补
+        if (!PairingStore.isPaired(prefs)) return
         // 三态键任一命中即视为已分类（work 应用 high/low 均为 false，缺 work 检查会重复请求）
         if (prefs.getBoolean("classified_high_$packageName", false) || prefs.getBoolean("classified_low_$packageName", false) || prefs.getBoolean("classified_work_$packageName", false)) return
         val appName = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString() }.getOrDefault(packageName)

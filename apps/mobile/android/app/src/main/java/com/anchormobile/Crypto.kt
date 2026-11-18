@@ -14,13 +14,21 @@ import javax.crypto.spec.SecretKeySpec
  * - 信封 { "enc": true, "v": 1, "data": base64 }
  */
 object Crypto {
-    const val DEFAULT_DATA_KEY = "anchor-dev-data-key"
-
     private const val IV_LEN = 12
     private const val TAG_BITS = 128
 
-    fun encryptEnvelope(plaintext: String, dataKey: String): String {
-        val key = MessageDigest.getInstance("SHA-256").digest(dataKey.toByteArray(Charsets.UTF_8))
+    /**
+     * 上行加密密钥必须已配置（配对成功后由服务器下发）。
+     * key 为 null/空白时抛异常，调用方负责处理（如跳过上报）。
+     */
+    fun requireDataKey(dataKey: String?): String {
+        val key = dataKey?.trim().orEmpty()
+        if (key.isEmpty()) throw IllegalStateException("数据密钥未配置，请先完成配对")
+        return key
+    }
+
+    fun encryptEnvelope(plaintext: String, dataKey: String?): String {
+        val key = MessageDigest.getInstance("SHA-256").digest(requireDataKey(dataKey).toByteArray(Charsets.UTF_8))
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val iv = ByteArray(IV_LEN).also { SecureRandom().nextBytes(it) }
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, iv))
