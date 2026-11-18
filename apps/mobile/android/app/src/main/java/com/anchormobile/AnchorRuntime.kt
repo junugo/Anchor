@@ -99,6 +99,10 @@ object AnchorRuntime {
         // 未配对不上报：本地状态机照常，WS 不上线（无有效 token 服务器会 4401 关闭）
         if (!PairingStore.isPaired(prefs)) {
             android.util.Log.i("Anchor", "未配对，跳过服务器连接；完成配对后自动上线")
+            // 清现场与正常 connect 开头对称：防旧重连任务/旧 socket 残留
+            retryHandler.removeCallbacks(reconnectTask)
+            webSocket?.cancel()
+            webSocket = null
             mutableState.update { it.copy(connected = false) }
             return
         }

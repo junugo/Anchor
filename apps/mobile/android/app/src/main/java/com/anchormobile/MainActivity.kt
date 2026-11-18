@@ -472,6 +472,17 @@ private fun PairingSection(context: Context, initialServerUrl: String, onServerU
     var success by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    // 生命周期重读：后台收到 4401/auth_failed 置 pair_invalid 后，回到设置页即回落到未配对表单
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) paired = PairingStore.isPaired(prefs)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        kotlinx.coroutines.awaitCancellation()
+        lifecycleOwner.lifecycle.removeObserver(observer)
+    }
+
     if (!paired || repairing) {
         AnchorCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

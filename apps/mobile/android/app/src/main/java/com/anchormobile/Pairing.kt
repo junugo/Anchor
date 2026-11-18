@@ -158,16 +158,6 @@ object PairingStore {
             .apply()
     }
 
-    /** 重新配对入口：清掉旧凭证（保留 server_url 供表单预填） */
-    fun clear(context: Context) {
-        prefs(context).edit()
-            .remove(KEY_TOKEN)
-            .remove(KEY_DEVICE_NAME)
-            .remove(KEY_PAIRED_AT)
-            .putBoolean(KEY_PAIR_INVALID, false)
-            .apply()
-    }
-
     private fun prefs(context: Context): android.content.SharedPreferences =
         context.getSharedPreferences("anchor", Context.MODE_PRIVATE)
 
