@@ -13,6 +13,7 @@ import next from 'next'
 import { initWsServer } from './lib/ws/server'
 import { guardRequest } from './lib/auth/guard'
 import { initDb } from './lib/db'
+import { getDataKey, getDataKeySource } from './lib/data-key'
 import { initSunsetConfig } from './lib/sunset/config'
 import { getUserDateStr, getUserLocalParts, getUserSleepDateStr, getUserTimeZone, getUserWeekday, userZonedTimeToUtc } from './lib/time/user-time'
 import type { Db } from '@anchor/db'
@@ -193,6 +194,16 @@ async function main() {
   await app.prepare()
   const db = initDb()
   console.log(`[server] DB 路径: ${process.env.ANCHOR_DB_PATH ?? path.join(os.homedir(), '.anchor', 'anchor.db')}`)
+  // 数据密钥启动时同步解析一次并缓存（env → settings → 生成持久化），便于排查客户端密钥不一致
+  {
+    getDataKey()
+    const { dataKeyFingerprint } = await import('@anchor/utils')
+    const fp = await dataKeyFingerprint(getDataKey())
+    console.log('[ws] 数据密钥指纹:', fp)
+    if (getDataKeySource() === 'generated') {
+      console.log('[server] 已生成新的数据密钥并持久化')
+    }
+  }
   const userTz = getUserTimeZone()
   const { hour, minute } = getUserLocalParts(Date.now())
   console.log(`[server] 用户时区: ${userTz} | 当前用户本地时间: ${hour}:${String(minute).padStart(2, '0')}`)

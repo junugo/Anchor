@@ -6,6 +6,7 @@ import type { IncomingMessage } from 'http'
 import { authCredentials, type Db } from '@anchor/db'
 import { getDb } from '@/lib/db'
 import { verifySession } from './session'
+import { verifyDeviceToken } from './device-token'
 import { SESSION_COOKIE } from './request'
 
 /** 单用户场景 hasPassword 只需点查单行（user_id='default' 唯一约束） */
@@ -33,14 +34,15 @@ export function isPublicPath(pathname: string): boolean {
   // 公开 API（by 设计）
   if (pathname === '/api/login') return true
   if (pathname === '/api/me') return true
-  if (pathname === '/api/pair') return true // 端点任务 7 实现，404 由路由自然产生
+  if (pathname === '/api/pair') return true // 配对兑换公开（限频在路由内）；/api/pair/codes 需登录
+  if (pathname === '/api/version') return true // 客户端更新检查（任务 13 消费）
   // /api/setup 仅在尚未设置密码时公开（见 guardRequest 内 hasPassword 判定）
   return false
 }
 
 export type AuthenticatedPrincipal =
   | { kind: 'session'; sessionId: number }
-  // 任务 7 将扩展设备 bearer 分支：{ kind: 'device'; deviceId: number }
+  // 设备 bearer（/api/pair 签发的 token 校验通过）
   | { kind: 'device'; deviceId: number; deviceName: string }
 
 /** 供 http 请求对象挂认证结果，下游（含 Next handler）可取用 */
@@ -49,16 +51,19 @@ export interface AuthedRequest extends IncomingMessage {
 }
 
 /**
- * 解析请求身份：anchor_session cookie → verifySession。
- * 预留扩展点：Authorization: Bearer 分支任务 7 填设备 token 校验（/api/pair 签发），
- * 目前 bearer 一律视为未认证（返回 null）。
+ * 解析请求身份：Authorization: Bearer 设备 token → verifyDeviceToken；
+ * 否则 anchor_session cookie → verifySession。
+ * 语义决策：Bearer 显式凭证无效即拒绝，不回落 cookie 校验——
+ * 客户端若主动出示了设备 token，凭证错就该失败，而不是静默降级成匿名/会话身份。
  */
 export function authenticateRequest(req: IncomingMessage): AuthenticatedPrincipal | null {
-  // --- Bearer 扩展点（任务 7）：设备 token ---
+  // --- Bearer：设备 token（/api/pair 签发的 32B base64url）---
   const authHeader = req.headers['authorization']
   if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-    // TODO(任务 7): verifyDeviceToken(getDb(), token) → { kind: 'device', ... }
-    return null
+    const token = authHeader.slice('Bearer '.length).trim()
+    if (!token) return null
+    const device = verifyDeviceToken(getDb(), token)
+    return device ? { kind: 'device', deviceId: device.deviceId, deviceName: device.name } : null
   }
 
   // http.IncomingMessage 的 headers 是普通对象，这里手写 cookie 解析（与 request.ts 同逻辑）

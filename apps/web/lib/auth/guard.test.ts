@@ -1,10 +1,11 @@
 // guard 中间件测试：临时 DB（惰性解析 ANCHOR_DB_PATH），用真实 IncomingMessage/ServerResponse。
 import assert from 'node:assert/strict'
 import test, { after, before } from 'node:test'
+import { createHash } from 'node:crypto'
 import { IncomingMessage } from 'http'
 import { Socket } from 'net'
 import { eq } from 'drizzle-orm'
-import { authCredentials, closeDb } from '@anchor/db'
+import { authCredentials, closeDb, devices } from '@anchor/db'
 import { cleanupDir, tempDbPath } from '../testUtils'
 import { getDb } from '@/lib/db'
 import { createSession } from './session'
@@ -68,6 +69,7 @@ test('isPublicPath：静态产物与公开页面/API 全部放行', () => {
     '/api/login',
     '/api/me',
     '/api/pair',
+    '/api/version',
   ]) {
     assert.ok(isPublicPath(p), `${p} 应公开`)
   }
@@ -135,7 +137,28 @@ test('无效 cookie 不放行', () => {
   assert.equal(guardRequest(req, makeRes()), false)
 })
 
-test('Bearer 分支（任务 7 扩展点）：当前一律未认证', () => {
-  const principal = authenticateRequest(makeReq('/api/status', { authorization: 'Bearer some-token' }))
-  assert.equal(principal, null)
+test('Bearer 分支：有效设备 token 放行（kind=device），无效/撤销拒绝且不回落 cookie', () => {
+  const db = getDb()
+  const now = Math.floor(Date.now() / 1000)
+  // 造一条未撤销设备行，token 明文只在此测试内出现
+  const token = 'guard-test-device-token'
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const inserted = db.insert(devices).values({
+    name: 'guard 测试机',
+    token_hash: tokenHash,
+    created_at: now,
+    last_seen_at: now,
+    revoked_at: null,
+  }).run()
+  const deviceId = Number(inserted.lastInsertRowid)
+
+  const ok = authenticateRequest(makeReq('/api/status', { authorization: `Bearer ${token}` }))
+  assert.deepEqual(ok, { kind: 'device', deviceId, deviceName: 'guard 测试机' })
+
+  // 无效 token：显式凭证无效即拒绝，不回落 cookie 校验
+  assert.equal(authenticateRequest(makeReq('/api/status', { authorization: 'Bearer bogus' })), null)
+
+  // 撤销后拒绝
+  db.update(devices).set({ revoked_at: now }).where(eq(devices.id, deviceId)).run()
+  assert.equal(authenticateRequest(makeReq('/api/status', { authorization: `Bearer ${token}` })), null)
 })

@@ -1,13 +1,14 @@
 ﻿import type { IncomingMessage, Server } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { WsServerMessage, WsClientMessage, UserState, SunsetClearReason } from '@anchor/types'
-import { unwrapBody, resolveDataKey, dataKeyFingerprint } from '@anchor/utils'
+import { unwrapBody, dataKeyFingerprint } from '@anchor/utils'
 import { eq } from 'drizzle-orm'
 import { devices } from '@anchor/db'
 import { handleClientMessage } from './handlers'
 import { getUserMinutesSinceMidnight } from '../time/user-time'
 import { getDb } from '../db'
 import { verifyDeviceToken } from '../auth/device-token'
+import { getDataKey } from '../data-key'
 
 // Next.js API 路由（webpack 打包）与自定义 server（tsx 加载）是两套模块实例，
 // 模块级状态不共享。clients 挂到 globalThis 保证全进程唯一，
@@ -28,10 +29,7 @@ export function initWsServer(server: Server, options?: { authTimeoutMs?: number 
   const wss = new WebSocketServer({ server, path: '/ws' })
   const authTimeoutMs = options?.authTimeoutMs ?? DEFAULT_AUTH_TIMEOUT_MS
 
-  // 记录服务器数据密钥指纹，便于排查客户端密钥不一致
-  dataKeyFingerprint(resolveDataKey(process.env)).then(fp => {
-    console.log('[ws] 数据密钥指纹:', fp)
-  }).catch(() => { /* ignore */ })
+  // 数据密钥指纹在 server.ts 启动流程统一打印（解析一次 + 缓存），此处不再重复
 
   wss.on('connection', async (ws: WsWithDevice, _req: IncomingMessage) => {
     // 低延迟遥测：禁用 Nagle，避免 Windows loopback 上多帧小消息被粘包延迟
@@ -72,8 +70,8 @@ export function initWsServer(server: Server, options?: { authTimeoutMs?: number 
             send(ws, await buildCurrentSunsetStageMessage())
             sendCurrentState(ws)
           } else {
-            send(ws, { type: 'auth_failed' })
-            ws.close(4401)
+            // 帧序加固：send 完成回调里再 close，避免 close 帧先于 auth_failed 到达客户端
+            ws.send(JSON.stringify({ type: 'auth_failed' } satisfies WsServerMessage), () => ws.close(4401))
           }
           return
         }
@@ -84,9 +82,9 @@ export function initWsServer(server: Server, options?: { authTimeoutMs?: number 
         // 加密上传：客户端对 ingest 消息加密（enc: true），解密后走正常处理；
         // 解密失败丢弃并告警；明文消息（旧客户端）原样兼容
         if ((msg as { enc?: boolean }).enc === true) {
-          const plain = await unwrapBody(msg, resolveDataKey(process.env))
+          const plain = await unwrapBody(msg, getDataKey())
           if (plain === null) {
-            const fp = await dataKeyFingerprint(resolveDataKey(process.env))
+            const fp = await dataKeyFingerprint(getDataKey())
             console.warn(`[ws] ingest 解密失败（服务器密钥指纹 ${fp}）`)
             send(ws, { type: 'error', code: 'DECRYPT_FAILED', message: '密钥不匹配，请检查配置或下载最新客户端' })
             return

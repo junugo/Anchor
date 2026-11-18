@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { ingestBehavior } from '@/lib/inference/ingest'
-import { unwrapBody, resolveDataKey, dataKeyFingerprint } from '@anchor/utils'
+import { unwrapBody, dataKeyFingerprint } from '@anchor/utils'
+import { getDataKey } from '@/lib/data-key'
 
 // 单次补发上限：客户端按 100 条分块，500 仅作防御性截断
 const MAX_BATCH_SIZE = 500
@@ -16,9 +17,9 @@ export async function POST(req: NextRequest) {
   const db = getDb()
 
   // 加密上传：enc:true 时解密出 { logs }；解密失败丢弃并告警
-  const plain = await unwrapBody(body, resolveDataKey(process.env))
+  const plain = await unwrapBody(body, getDataKey())
   if (plain === null) {
-    const fp = await dataKeyFingerprint(resolveDataKey(process.env))
+    const fp = await dataKeyFingerprint(getDataKey())
     console.warn(`[batch] 解密失败，请求已丢弃（服务器密钥指纹 ${fp}）`)
     return NextResponse.json({ error: '解密失败' }, { status: 400 })
   }
