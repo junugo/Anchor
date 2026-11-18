@@ -34,6 +34,10 @@ export function initWsServer(server: Server, options?: { authTimeoutMs?: number 
   }).catch(() => { /* ignore */ })
 
   wss.on('connection', async (ws: WsWithDevice, _req: IncomingMessage) => {
+    // 低延迟遥测：禁用 Nagle，避免 Windows loopback 上多帧小消息被粘包延迟
+    // （认证后 auth_ok + config/stage/state 连发，Nagle+delayed ACK 可滞留数百 ms 至数秒）
+    ;(ws as unknown as { _socket: { setNoDelay(noDelay?: boolean): void } })._socket.setNoDelay(true)
+
     // 认证门：连接后不立即视为已认证，仅处理 {type:'auth'}；超时未认证关闭（4401）
     let authed = false
     const authTimer = setTimeout(() => {
