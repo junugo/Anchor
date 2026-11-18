@@ -1,7 +1,7 @@
 import type { BehaviorEventType, WsClientMessage, WsServerMessage } from '@anchor/types'
 import { encryptEnvelope } from '@anchor/utils'
 import { createBadgeController, type SunsetPhase } from '../src/badge'
-import { getServerConfig, loadServerConfig, onServerConfigChange, wsUrlFor } from '../src/config'
+import { getServerConfig, isPaired, loadServerConfig, onServerConfigChange, PAIR_INVALID_KEY, wsUrlFor } from '../src/config'
 import { enqueueEvent, getAllQueuedEvents, removeQueuedEvent } from '../src/behavior-queue'
 import { createInterventionHandler } from '../src/intervention-handler'
 import { createSiteClassifier, type SiteClassificationsCache } from '../src/site-classifier'
@@ -188,10 +188,10 @@ export default defineBackground(() => {
   async function flushQueue(): Promise<void> {
     const events = await getAllQueuedEvents()
     if (events.length === 0) return
-    // 未配置数据密钥：显式拒绝上报（须选项页配置或等待配对改造），保留队列待配置后补发
+    // 未配置数据密钥：显式拒绝上报（须在选项页填写或完成配对），保留队列待配置后补发
     const dataKey = getServerConfig().dataKey
     if (dataKey === null) {
-      console.warn('[Anchor] 未配置数据密钥，暂停离线队列补发；请在选项页填写或等待配对流程改造')
+      console.warn('[Anchor] 未配置数据密钥，暂停离线队列补发；请在选项页填写或完成配对')
       return
     }
     for (let i = 0; i < events.length; i += FLUSH_CHUNK_SIZE) {
@@ -222,10 +222,22 @@ export default defineBackground(() => {
 
   let wsClient: ReturnType<typeof createWsClient> | null = null
 
-  function connectWs() {
+  // WS 连接前置条件：serverUrl + token + dataKey 三者齐全（token 由配对下发）
+  async function connectWs() {
     const cfg = getServerConfig()
     wsClient?.close()
+    if (!isPaired(cfg) || cfg.dataKey == null) {
+      console.warn('[Anchor] 未完成配对（缺少 token 或数据密钥），暂不连接服务器；请在选项页完成配对')
+      return
+    }
+    // 配对已失效（auth_failed/4401）：退避停连后保持静默，直到重新配对成功清除标记
+    const invalid = await chrome.storage.local.get(PAIR_INVALID_KEY)
+    if (invalid[PAIR_INVALID_KEY]) {
+      console.warn('[Anchor] 配对凭证已失效，请在选项页重新配对')
+      return
+    }
     wsClient = createWsClient(wsUrlFor(cfg.serverUrl), {
+      token: cfg.token,
       onOpen: () => {
         chrome.storage.local.set({ 'anchor:connected': true }).catch(() => {})
         badge.update({ connected: true }).catch(() => {})
@@ -237,12 +249,17 @@ export default defineBackground(() => {
         badge.update({ connected: false }).catch(() => {})
       },
       onMessage: (msg) => handleServerMessage(msg),
+      onAuthFailed: () => {
+        console.warn('[Anchor] 配对凭证认证失败（auth_failed/4401），停止重连；请在选项页重新配对')
+        chrome.storage.local.set({ [PAIR_INVALID_KEY]: true, 'anchor:connected': false }).catch(() => {})
+        badge.update({ connected: false }).catch(() => {})
+      },
     })
     wsClient.connect()
   }
 
-  // 选项页保存服务器地址/数据密钥 → 立即按新配置重连，无需重载扩展
-  onServerConfigChange(() => connectWs())
+  // 选项页保存服务器地址/数据密钥 / 配对成功 → 立即按新配置重连，无需重载扩展
+  onServerConfigChange(() => { connectWs().catch(() => {}) })
 
   function sendWsClientMessage(message: WsClientMessage) {
     wsClient?.send(message)
@@ -250,10 +267,10 @@ export default defineBackground(() => {
 
   async function sendBehavior(event_type: BehaviorEventType, payload: Record<string, unknown>) {
     const logged_at = Math.floor(Date.now() / 1000)
-    // 未配置数据密钥：显式拒绝上报（须选项页配置或等待配对改造），事件进入离线队列待配置后补发
+    // 未配置数据密钥：显式拒绝上报（须在选项页填写或完成配对），事件进入离线队列待配置后补发
     const dataKey = getServerConfig().dataKey
     if (dataKey === null) {
-      console.warn('[Anchor] 未配置数据密钥，拒绝上报；请在选项页填写或等待配对流程改造')
+      console.warn('[Anchor] 未配置数据密钥，拒绝上报；请在选项页填写或完成配对')
       await enqueueEvent('chrome', event_type, payload, logged_at)
       return
     }
@@ -406,6 +423,11 @@ export default defineBackground(() => {
 
   function handleServerMessage(msg: WsServerMessage) {
     switch (msg.type) {
+      // 认证通过：清除配对失效标记
+      case 'auth_ok':
+        chrome.storage.local.set({ [PAIR_INVALID_KEY]: false }).catch(() => {})
+        break
+
       case 'sunset:phase':
         storeSunsetPhase(msg.phase, msg.expires_at).catch(() => {})
         badge.update({ phase: msg.phase as SunsetPhase }).catch(() => {})
@@ -683,7 +705,15 @@ export default defineBackground(() => {
     connectWs()
   }
 
-  chrome.runtime.onInstalled.addListener(() => { init() })
+  chrome.runtime.onInstalled.addListener((details) => {
+    // 首次安装且未配对：直接打开选项页引导配对
+    if (details.reason === 'install') {
+      void loadServerConfig().then((cfg) => {
+        if (!isPaired(cfg)) chrome.runtime.openOptionsPage()
+      })
+    }
+    init()
+  })
   chrome.runtime.onStartup.addListener(() => { init() })
   init()
 })
