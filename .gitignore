@@ -92,5 +92,5 @@ docs/PROJECT_CHARTER.md
 docs/api.md
 docs/superpowers/
 
-# Update build sentinel (13a review artifact)
+# 更新构建成功标记（本地哨兵文件，防误提交）
 .anchor-update-build-ok
