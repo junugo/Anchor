@@ -3,7 +3,7 @@ import { defineConfig } from 'wxt'
 export default defineConfig({
   manifest: {
     name: 'Anchor',
-    version: '0.0.1',
+    version: '2.0.0',
     description: 'Anchor 网页行为感知与宵禁拦截',
     permissions: ['tabs', 'activeTab', 'storage', 'alarms', 'favicon'],
     host_permissions: ['<all_urls>'],

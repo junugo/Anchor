@@ -91,3 +91,6 @@ CLAUDE.md
 docs/PROJECT_CHARTER.md
 docs/api.md
 docs/superpowers/
+
+# Update build sentinel (13a review artifact)
+.anchor-update-build-ok
