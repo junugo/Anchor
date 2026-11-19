@@ -2,7 +2,7 @@
   "name": "apps-vscode-ext",
   "displayName": "Anchor",
   "description": "Anchor 节律守护：键入活动上报与状态栏节律着色（配合自托管 Anchor 服务器）",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "publisher": "junugo",
   "license": "MIT",
   "repository": {
