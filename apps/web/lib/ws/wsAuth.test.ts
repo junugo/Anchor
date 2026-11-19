@@ -100,10 +100,10 @@ function seedDevice(name: string): string {
   return token
 }
 
-test('认证超时：不发 auth → 4401 关闭', async () => {
+test('认证超时：不发 auth → 4408 关闭', async () => {
   const ws = await connect()
   const code = await waitClose(ws)
-  assert.equal(code, 4401)
+  assert.equal(code, 4408)
 })
 
 test('错误 token → auth_failed + 4401', async () => {
@@ -123,7 +123,7 @@ test('认证前发其他消息被忽略（连接不被关，直到超时）', as
   await new Promise(resolve => setTimeout(resolve, 50))
   assert.equal(ws.readyState, WebSocket.OPEN)
   const code = await waitClose(ws)
-  assert.equal(code, 4401)
+  assert.equal(code, 4408)
 })
 
 test('正确 token → auth_ok + 后续消息可达 + last_seen_at 刷新', async () => {

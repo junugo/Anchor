@@ -54,7 +54,7 @@ export type WsServerMessage =
   // 已有客户端开始输入（接管）：其他端收到后关闭弹窗；接管后 prompt 不再过期，提交/跳过永远有效
   | { type: 'intent:typing'; prompt_id: string }
   | { type: 'context_switch:typing'; prompt_id: string }
-  // WS 认证门：设备 token 校验结果（认证失败随后 close 4401）
+  // WS 认证门：设备 token 校验结果（认证失败随后 close 4401；超时未认证 close 4408）
   | { type: 'auth_ok'; deviceId: number }
   | { type: 'auth_failed' }
 

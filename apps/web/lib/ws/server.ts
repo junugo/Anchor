@@ -36,12 +36,12 @@ export function initWsServer(server: Server, options?: { authTimeoutMs?: number 
     // （认证后 auth_ok + config/stage/state 连发，Nagle+delayed ACK 可滞留数百 ms 至数秒）
     ;(ws as unknown as { _socket: { setNoDelay(noDelay?: boolean): void } })._socket.setNoDelay(true)
 
-    // 认证门：连接后不立即视为已认证，仅处理 {type:'auth'}；超时未认证关闭（4401）
+    // 认证门：连接后不立即视为已认证，仅处理 {type:'auth'}；超时未认证关闭（4408，与 4401 认证失败区分）
     let authed = false
     const authTimer = setTimeout(() => {
       if (!authed) {
-        console.log('[ws] 认证超时')
-        ws.close(4401)
+        console.log('[ws] 认证超时（未在时限内收到 auth）')
+        ws.close(4408)
       }
     }, authTimeoutMs)
 
