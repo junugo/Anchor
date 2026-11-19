@@ -471,9 +471,12 @@ private fun UpdateSection(context: Context) {
 
     // 启动检查：节流在 UpdateChecker（SharedPreferences 记 last_check_at，每天最多一次）
     LaunchedEffect(Unit) {
-        UpdateChecker.check(context)?.let {
-            pendingInfo = it
-            showDialog = true
+        when (val r = UpdateChecker.check(context)) {
+            is UpdateChecker.CheckResult.NewVersion -> {
+                pendingInfo = r.info
+                showDialog = true
+            }
+            else -> Unit // 已是最新/失败/被节流：静默
         }
     }
 
@@ -481,15 +484,18 @@ private fun UpdateSection(context: Context) {
         if (checking) return
         checking = true
         scope.launch {
-            val info = UpdateChecker.check(context, force = true)
-            checking = false
-            when {
-                info != null -> {
-                    pendingInfo = info
+            when (val r = UpdateChecker.check(context, force = true)) {
+                is UpdateChecker.CheckResult.NewVersion -> {
+                    pendingInfo = r.info
                     showDialog = true
                 }
-                else -> UpdateChecker.toast(context, context.getString(R.string.settings_update_latest))
+                UpdateChecker.CheckResult.UpToDate ->
+                    UpdateChecker.toast(context, context.getString(R.string.settings_update_latest))
+                UpdateChecker.CheckResult.Failed ->
+                    UpdateChecker.toast(context, context.getString(R.string.settings_update_fail))
+                null -> Unit // 不应出现（force 跳过节流）；防御
             }
+            checking = false
         }
     }
 

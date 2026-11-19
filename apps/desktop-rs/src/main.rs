@@ -119,12 +119,19 @@ fn main() {
         }
         TrayCommand::Quit => shutdown::request_quit(),
         TrayCommand::ApplyUpdate => {
-            // 后台线程执行下载/校验/自替换；成功后进程退出，失败置 Failed 并提示
+            // 防双击守卫：下载/写 bat 不可并发（成功后 AtomicBool 随进程退出，无需复位）
+            static UPDATING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if UPDATING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                log::warn!("[update] 更新已在进行中，忽略重复点击");
+                return;
+            }
+            // 后台线程执行下载/校验/自替换；成功后走正常退出流程，失败置 Failed 并提示
             let shared = Arc::clone(&shared_for_tray);
             std::thread::spawn(move || {
                 let info = shared.read().ok().and_then(|g| g.update_info.clone());
                 let Some(info) = info else {
                     log::warn!("[update] 点击更新但无更新信息，忽略");
+                    UPDATING.store(false, std::sync::atomic::Ordering::SeqCst);
                     return;
                 };
                 if let Ok(mut g) = shared.write() {
