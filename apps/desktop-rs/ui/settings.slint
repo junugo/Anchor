@@ -55,10 +55,12 @@ export component SettingsWindow inherits Window {
                 close-requested => { root.close-requested(); }
             }
 
+            // 内容顶部对齐：已配对态内容较矮，多余空白沉底而非被 stretch 分摊到卡片之间
             VerticalLayout {
                 padding: 16px;
                 padding-top: 12px;
                 spacing: 10px;
+                alignment: start;
 
                 Text {
                     text: "设置";
@@ -145,6 +147,7 @@ export component SettingsWindow inherits Window {
                                 height: parent.height;
                                 vertical-alignment: center;
                                 font-size: 13px;
+                                single-line: true;
                                 color: Palette.text-primary;
                                 selection-background-color: Palette.accent-muted;
                                 selection-foreground-color: Palette.text-primary;
@@ -171,6 +174,7 @@ export component SettingsWindow inherits Window {
                                 height: parent.height;
                                 vertical-alignment: center;
                                 font-size: 13px;
+                                single-line: true;
                                 color: Palette.text-primary;
                                 selection-background-color: Palette.accent-muted;
                                 selection-foreground-color: Palette.text-primary;
@@ -197,6 +201,7 @@ export component SettingsWindow inherits Window {
                                 height: parent.height;
                                 vertical-alignment: center;
                                 font-size: 13px;
+                                single-line: true;
                                 color: Palette.text-primary;
                                 selection-background-color: Palette.accent-muted;
                                 selection-foreground-color: Palette.text-primary;
