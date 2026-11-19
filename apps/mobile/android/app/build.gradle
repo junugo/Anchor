@@ -21,8 +21,8 @@ android {
         applicationId 'com.anchormobile'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '2.0.1'
+        versionCode 4
+        versionName '2.0.2'
     }
 
     // 共享 debug 签名：debug keystore 入库（安卓生态里 debug 钥匙本就是公开身份），
