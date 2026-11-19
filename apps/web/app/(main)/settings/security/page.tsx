@@ -230,31 +230,27 @@ function DevicesSection() {
         <p style={{ fontSize: '12px', color: 'var(--color-curfew, #cf222e)', margin: 0 }}>加载失败，请刷新重试</p>
       ) : devices === null ? (
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>加载中…</p>
-      ) : devices.length === 0 ? (
+      ) : devices.filter(d => d.revokedAt === null).length === 0 ? (
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>暂无已配对设备</p>
       ) : (
         <div className="list-group">
-          {devices.map(d => {
-            const revoked = d.revokedAt !== null
+          {/* 已撤销设备直接从列表移除（用户反馈：不保留「已撤销」占位态）；记录仍在库中 */}
+          {devices.filter(d => d.revokedAt === null).map(d => {
             return (
               <div key={d.id} className="list-item" style={{ cursor: 'default' }}>
-                <ShieldCheck size={16} style={{ color: revoked ? 'var(--text-disabled)' : 'var(--color-working, #22863a)', flexShrink: 0 }} />
+                <ShieldCheck size={16} style={{ color: 'var(--color-working, #22863a)', flexShrink: 0 }} />
                 <span className="item-label" style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', opacity: revoked ? 0.55 : 1 }}>
+                  <span style={{ display: 'block' }}>
                     {d.name}
                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
                       {d.clientVersion ?? '未知版本'}
                     </span>
                   </span>
                   <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {revoked
-                      ? `已撤销 · ${formatRelativeTime(d.revokedAt, now)}`
-                      : `最后活跃 ${formatRelativeTime(d.lastSeenAt, now)}`}
+                    {`最后活跃 ${formatRelativeTime(d.lastSeenAt, now)}`}
                   </span>
                 </span>
-                {revoked
-                  ? <span style={{ fontSize: '12px', color: 'var(--text-disabled)' }}>已撤销</span>
-                  : <button className="btn btn-ghost" style={{ fontSize: '12px', padding: '3px 8px' }} onClick={() => revoke(d.id, d.name)}>撤销</button>}
+                <button className="btn btn-ghost" style={{ fontSize: '12px', padding: '3px 8px' }} onClick={() => revoke(d.id, d.name)}>撤销</button>
               </div>
             )
           })}
