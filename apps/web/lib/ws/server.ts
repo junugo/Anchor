@@ -65,10 +65,12 @@ export function initWsServer(server: Server, options?: { authTimeoutMs?: number 
               .where(eq(devices.id, device.deviceId))
               .run()
             send(ws, { type: 'auth_ok', deviceId: device.deviceId })
-            // 认证成功后再下发配置/阶段/当前状态，客户端断线重连时可恢复本地执行
+            // 认证成功后再下发配置/阶段/当前状态，客户端断线重连时可恢复本地执行。
+            // 注意：三个下发必须全部 await——游离 Promise 会在测试收尾 closeDb 后
+            // 恢复执行并以 unhandledRejection 炸掉整个测试进程（Linux CI 时序更易触发）
             send(ws, await buildSunsetConfigMessage())
             send(ws, await buildCurrentSunsetStageMessage())
-            sendCurrentState(ws)
+            await sendCurrentState(ws)
           } else {
             // 帧序加固：send 完成回调里再 close，避免 close 帧先于 auth_failed 到达客户端
             ws.send(JSON.stringify({ type: 'auth_failed' } satisfies WsServerMessage), () => ws.close(4401))
