@@ -4,10 +4,8 @@
  * 仅加密行为数据上传通道（WS ingest / REST /api/ingest/batch），控制消息保持明文。
  * 算法：AES-256-GCM，密钥 = SHA-256(passphrase)。
  * 线格式：base64(iv(12B) ‖ ciphertext ‖ tag(16B))，密文长度 = 明文 + 28B。
- * 服务器未配置 ANCHOR_DATA_KEY 时回退内置开发密钥（仅限本地开发，生产须配置）。
+ * 服务器必须通过环境变量 ANCHOR_DATA_KEY 配置密钥，未配置时显式抛错（见 resolveDataKey）。
  */
-
-export const DEFAULT_DATA_KEY = 'anchor-dev-data-key'
 
 export type DataKeyEnv = { ANCHOR_DATA_KEY?: string | undefined }
 
@@ -15,7 +13,18 @@ export type DataKeyEnv = { ANCHOR_DATA_KEY?: string | undefined }
 // DataKeyEnv 全可选属性属弱类型，直接传 ProcessEnv 触发 TS2559）
 export function resolveDataKey(env?: DataKeyEnv | Record<string, string | undefined>): string {
   const key = env?.ANCHOR_DATA_KEY?.trim()
-  return key && key.length > 0 ? key : DEFAULT_DATA_KEY
+  if (!key || key.length === 0) {
+    throw new Error('ANCHOR_DATA_KEY 未配置：请通过环境变量设置数据密钥（生产部署必填）')
+  }
+  return key
+}
+
+/** 生成新的数据密钥：32 字节随机数，hex 编码（64 字符），可直接作为 ANCHOR_DATA_KEY 或客户端数据密钥 */
+export function generateDataKey(): string {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(32))
+  let hex = ''
+  for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0')
+  return hex
 }
 
 /** 数据密钥指纹：用于诊断密钥是否一致，不暴露真实密钥 */

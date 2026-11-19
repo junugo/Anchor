@@ -377,6 +377,63 @@ export const stateSegments = sqliteTable('state_segments', {
   last_seen_at: integer('last_seen_at'),
 })
 
+// V2.0 阶段 1a：认证与设备配对相关表
+// 通用键值存储（本轮用于存 data_key；后续任务写入，本任务只建表）
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+})
+export type Setting = typeof settings.$inferSelect
+export type NewSetting = typeof settings.$inferInsert
+
+// 登录凭据（单用户约定：user_id 固定 'default'，单行语义）
+export const authCredentials = sqliteTable('auth_credentials', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: text('user_id').notNull().unique(),
+  password_hash: text('password_hash').notNull(),
+  // scrypt 参数 JSON，如 {"n":16384,"r":8,"p":1}
+  scrypt_params: text('scrypt_params', { mode: 'json' }).notNull().$type<{ n: number; r: number; p: number }>(),
+  created_at: integer('created_at').notNull(),
+  updated_at: integer('updated_at').notNull(),
+})
+export type AuthCredential = typeof authCredentials.$inferSelect
+export type NewAuthCredential = typeof authCredentials.$inferInsert
+
+// Web 会话（token 以哈希形式存储）
+export const sessions = sqliteTable('sessions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  token_hash: text('token_hash').notNull().unique(),
+  created_at: integer('created_at').notNull(),
+  expires_at: integer('expires_at').notNull(),
+})
+export type Session = typeof sessions.$inferSelect
+export type NewSession = typeof sessions.$inferInsert
+
+// 已配对设备（客户端 token 以哈希形式存储）
+export const devices = sqliteTable('devices', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  token_hash: text('token_hash').notNull().unique(),
+  client_version: text('client_version'),
+  created_at: integer('created_at').notNull(),
+  last_seen_at: integer('last_seen_at'),
+  revoked_at: integer('revoked_at'),
+})
+export type Device = typeof devices.$inferSelect
+export type NewDevice = typeof devices.$inferInsert
+
+// 设备配对码（短码明文不落库，只存哈希；attempts 防爆破）
+export const pairCodes = sqliteTable('pair_codes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  code_hash: text('code_hash').notNull(),
+  expires_at: integer('expires_at').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  consumed_at: integer('consumed_at'),
+  created_at: integer('created_at').notNull(),
+})
+export type PairCode = typeof pairCodes.$inferSelect
+export type NewPairCode = typeof pairCodes.$inferInsert
+
 // V1.8：时间轴 — 干预事件日志（dispatch 落库，WS 回执回填 result）
 export const interventionLogs = sqliteTable('intervention_logs', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -33,7 +33,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 
-use crate::shared::{SharedState, SunsetPhase};
+use crate::shared::{SharedState, SunsetPhase, UpdateStatus};
 
 const WM_TRAYICON: u32 = WM_APP + 1;
 const TRAY_UID: u32 = 1;
@@ -41,6 +41,8 @@ const TRAY_UID: u32 = 1;
 const ID_SETTINGS: usize = 1003;
 const ID_QUIT: usize = 1004;
 const ID_INTENT: usize = 1005;
+const ID_UPDATE: usize = 1006;
+const ID_UPDATE_FAILED: usize = 1007;
 
 // 气球通知被点击（Shell_NotifyIconW 回调 lparam 低位）
 const NIN_BALLOONUSERACTION: u32 = 0x0405;
@@ -60,6 +62,10 @@ pub enum TrayCommand {
     Quit,
     /// 重开睡前意图弹窗（托盘菜单 / 气球点击）
     ReopenIntent,
+    /// 点击托盘菜单「发现新版本 · 点击更新」：执行自替换更新
+    ApplyUpdate,
+    /// 更新失败：打开 GitHub releases 页手动下载
+    OpenReleases,
 }
 
 /// 注册命令处理器（主线程调用；wnd_proc 跑在主线程，直接同步派发）
@@ -264,6 +270,8 @@ unsafe fn show_context_menu(hwnd: HWND) {
             g.user_state.clone(),
             g.sunset_phase,
             g.target_bedtime_minutes,
+            g.paired,
+            g.update.clone(),
         )
     }));
 
@@ -273,9 +281,11 @@ unsafe fn show_context_menu(hwnd: HWND) {
     };
 
     let status_line = match &snapshot {
-        Some((connected, config_error, user_state, _, _)) => {
+        Some((connected, config_error, user_state, _, _, paired, _)) => {
             if let Some(err) = config_error {
                 format!("配置错误 · {err}")
+            } else if !*paired {
+                "未配对 · 请在设置中配对".to_owned()
             } else {
                 let conn = if *connected { "已连接" } else { "未连接" };
                 let state = user_state
@@ -289,7 +299,7 @@ unsafe fn show_context_menu(hwnd: HWND) {
     };
     append_text(menu, &format!("Anchor · {status_line}"), false);
 
-    if let Some((_, _, _, phase, target)) = &snapshot {
+    if let Some((_, _, _, phase, target, _, _)) = &snapshot {
         if *phase != SunsetPhase::Off {
             let remaining = remaining_minutes(*target);
             append_text(menu, &format!("距就寝 {remaining} 分钟 · {}", phase.label()), false);
@@ -298,6 +308,22 @@ unsafe fn show_context_menu(hwnd: HWND) {
 
     // 睡前意图：常驻菜单入口，点击后 fetch 当日意图并打开编辑弹窗
     append_item(menu, ID_INTENT, "写睡前意图");
+
+    // 自动更新：发现新版 → 可点击更新；失败 → 引导手动下载
+    if let Some((_, _, _, _, _, _, update)) = &snapshot {
+        match update {
+            UpdateStatus::Available(v) => {
+                append_item(menu, ID_UPDATE, &format!("发现新版本 v{v} · 点击更新"));
+            }
+            UpdateStatus::Updating => {
+                append_text(menu, "正在更新…", false);
+            }
+            UpdateStatus::Failed => {
+                append_item(menu, ID_UPDATE_FAILED, "更新失败 · 点击手动下载");
+            }
+            UpdateStatus::Idle => {}
+        }
+    }
 
     let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
     append_item(menu, ID_SETTINGS, "设置");
@@ -322,6 +348,8 @@ unsafe fn show_context_menu(hwnd: HWND) {
     match cmd.0 as usize {
         ID_SETTINGS => send_cmd(TrayCommand::OpenSettings),
         ID_INTENT => send_cmd(TrayCommand::ReopenIntent),
+        ID_UPDATE => send_cmd(TrayCommand::ApplyUpdate),
+        ID_UPDATE_FAILED => send_cmd(TrayCommand::OpenReleases),
         ID_QUIT => send_cmd(TrayCommand::Quit),
         _ => {}
     }

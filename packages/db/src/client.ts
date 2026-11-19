@@ -352,6 +352,43 @@ export function createDb(dbPath: string) {
     // V2.1：起床观察窗相位字段（wake_observing 下首个强活动时刻 + 观察窗到期时刻）
     `ALTER TABLE sunset_sessions ADD COLUMN wake_first_activity_at INTEGER`,
     `ALTER TABLE sunset_sessions ADD COLUMN wake_observe_until_at INTEGER`,
+    // V2.0 阶段 1a：认证与设备配对相关表
+    `CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS auth_credentials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      scrypt_params TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      client_version TEXT,
+      created_at INTEGER NOT NULL,
+      last_seen_at INTEGER,
+      revoked_at INTEGER
+    )`,
+    `CREATE TABLE IF NOT EXISTS pair_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code_hash TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      consumed_at INTEGER,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_pair_codes_code_hash ON pair_codes (code_hash)`,
   ]
   for (const sql of migrations) {
     try { sqlite.exec(sql) } catch { /* already exists */ }

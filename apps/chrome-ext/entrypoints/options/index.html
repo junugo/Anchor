@@ -11,6 +11,8 @@
         --text-primary: #1a1410;
         --text-secondary: #6b6560;
         --accent: #c0622a;
+        --ok: #22863a;
+        --err: #cf222e;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -20,6 +22,8 @@
           --text-primary: #f0ebe4;
           --text-secondary: #9e978e;
           --accent: #d4703a;
+          --ok: #4ac26b;
+          --err: #f85149;
         }
       }
       body {
@@ -45,6 +49,7 @@
         border: 1px solid var(--border);
         border-radius: 8px;
         padding: 14px;
+        margin-bottom: 12px;
       }
       label {
         display: block;
@@ -86,14 +91,32 @@
         font-weight: 500;
         cursor: pointer;
       }
+      button.secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+      }
       button:disabled {
         opacity: 0.6;
         cursor: default;
       }
-      #saved {
+      #pair-status {
         font-size: 12px;
-        color: #22863a;
-        visibility: hidden;
+        line-height: 1.5;
+      }
+      #pair-status.ok { color: var(--ok); }
+      #pair-status.err { color: var(--err); }
+      .paired-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px;
+        margin-bottom: 12px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--ok) 12%, transparent);
+        color: var(--ok);
+        font-size: 12px;
+        font-weight: 500;
       }
       .hint {
         margin: 10px 0 0;
@@ -104,24 +127,79 @@
       #fingerprint {
         font-family: ui-monospace, monospace;
       }
+      #saved {
+        font-size: 12px;
+        color: var(--ok);
+        visibility: hidden;
+      }
+      /* 更新提示横幅：页面底部，不挡配对流程 */
+      .update-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        margin-top: 12px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .update-bar a {
+        color: inherit;
+        margin-left: auto;
+        white-space: nowrap;
+      }
+      [hidden] {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
-    <h1>Anchor 设置</h1>
-    <p class="subtitle">服务器地址与上行数据密钥，保存后立即生效（自动重连，无需重载扩展）</p>
-    <div class="card">
+    <h1 id="page-title">配对你的浏览器</h1>
+    <p class="subtitle" id="page-subtitle">在 Anchor 服务器管理界面获取配对码，完成配对后自动连接</p>
+
+    <!-- 已配对状态条 -->
+    <div class="paired-bar" id="paired-bar" hidden>
+      <span id="paired-text">已配对</span>
+    </div>
+
+    <!-- 配对表单（未配对时主显；已配对时点「重新配对」展开，覆盖现有 token） -->
+    <div class="card" id="pair-card">
+      <label for="pair-server-url">服务器地址</label>
+      <input id="pair-server-url" type="text" placeholder="http://localhost:4000" autocomplete="off" spellcheck="false" />
+      <label for="pair-code">配对码</label>
+      <input id="pair-code" type="text" placeholder="如 A3F9-2K7D" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+      <label for="pair-device-name">设备名</label>
+      <input id="pair-device-name" type="text" autocomplete="off" spellcheck="false" />
+      <div class="row">
+        <button id="pair-btn" type="button">配对</button>
+        <span id="pair-status"></span>
+      </div>
+    </div>
+
+    <!-- 已配对后的设置项 -->
+    <div class="card" id="settings-card" hidden>
       <label for="server-url">服务器地址</label>
       <input id="server-url" type="text" placeholder="http://localhost:4000" autocomplete="off" spellcheck="false" />
       <label for="data-key">数据密钥</label>
-      <input id="data-key" type="password" placeholder="留空使用内置开发密钥（仅限本地开发）" autocomplete="off" spellcheck="false" />
+      <input id="data-key" type="password" placeholder="通常由配对自动下发，无需手动填写" autocomplete="off" spellcheck="false" />
       <div class="row">
         <button id="save" type="button">保存</button>
         <span id="saved">已保存</span>
+        <button id="re-pair" class="secondary" type="button" style="margin-left: auto;">重新配对</button>
       </div>
       <p class="hint">
         密钥须与服务器环境变量 <code>ANCHOR_DATA_KEY</code> 一致。当前生效密钥指纹：<span id="fingerprint">-</span>
       </p>
     </div>
+
     <script type="module" src="./main.ts"></script>
+
+    <!-- 更新提示（页面底部，已配对/未配对都显示） -->
+    <div class="update-bar" id="update-bar" hidden>
+      <span id="update-text">发现新版本</span>
+      <a id="update-link" href="https://github.com/junugo/Anchor/releases/latest" target="_blank" rel="noreferrer">查看发布页</a>
+    </div>
   </body>
 </html>

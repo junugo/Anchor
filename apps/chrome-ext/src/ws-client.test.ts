@@ -96,4 +96,56 @@ describe('createWsClient', () => {
     vi.advanceTimersByTime(2100)
     expect(MockWebSocket.instances.length).toBe(2)
   })
+
+  it('token 存在时 auth 是连接后的第一条消息', () => {
+    const onOpen = vi.fn()
+    const client = createWsClient('ws://localhost:4000', { token: 'tok-1', onOpen })
+    client.connect()
+    const ws = MockWebSocket.instances[0]
+    ws.open()
+    expect(onOpen).toHaveBeenCalled()
+    expect(ws.sent[0]).toBe(JSON.stringify({ type: 'auth', token: 'tok-1' }))
+  })
+
+  it('无 token 时不发送 auth', () => {
+    const client = createWsClient('ws://localhost:4000', {})
+    client.connect()
+    MockWebSocket.instances[0].open()
+    expect(MockWebSocket.instances[0].sent).toEqual([])
+  })
+
+  it('auth_failed 消息：回调 onAuthFailed 且停止重连', () => {
+    const onAuthFailed = vi.fn()
+    const client = createWsClient('ws://localhost:4000', { token: 'bad', onAuthFailed })
+    client.connect()
+    const ws = MockWebSocket.instances[0]
+    ws.open()
+    ws.receive({ type: 'auth_failed' })
+    expect(onAuthFailed).toHaveBeenCalled()
+    ws.close() // 普通断线也不再重连
+    vi.advanceTimersByTime(60000)
+    expect(MockWebSocket.instances.length).toBe(1)
+  })
+
+  it('close code 4401：回调 onAuthFailed 且停止重连', () => {
+    const onAuthFailed = vi.fn()
+    const client = createWsClient('ws://localhost:4000', { token: 'bad', onAuthFailed })
+    client.connect()
+    const ws = MockWebSocket.instances[0]
+    ws.open()
+    ws.onclose?.({ code: 4401 } as CloseEvent)
+    expect(onAuthFailed).toHaveBeenCalled()
+    vi.advanceTimersByTime(60000)
+    expect(MockWebSocket.instances.length).toBe(1)
+  })
+
+  it('认证阶段普通断线：走既有重连逻辑', () => {
+    const onAuthFailed = vi.fn()
+    const client = createWsClient('ws://localhost:4000', { token: 'tok', onAuthFailed })
+    client.connect()
+    MockWebSocket.instances[0].close()
+    expect(onAuthFailed).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(2100)
+    expect(MockWebSocket.instances.length).toBe(2)
+  })
 })

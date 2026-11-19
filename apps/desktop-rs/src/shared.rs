@@ -85,6 +85,38 @@ pub struct SharedState {
     /// 托盘「写睡前意图」点击后由 fetch 线程写入今日意图内容（空串 = 无已写内容），
     /// sync loop 检测到后打开弹窗并预填，随即清空
     pub intent_today_prefill: Option<String>,
+    /// 当前是否已配对（daemon 启动/配对/保存设置/认证失败时写入）
+    pub paired: bool,
+    /// 配对失效（auth_failed / 4401）：true 时 sync loop 打开设置窗引导重新配对
+    pub pair_invalid: bool,
+    /// 最近一次配对操作结果（设置窗展示后由 wm take 清空）
+    pub pair_status: Option<PairStatus>,
+    /// 自动更新状态（托盘菜单动态项）
+    pub update: UpdateStatus,
+    /// 发现的更新详情（ApplyUpdate 时取用）
+    pub update_info: Option<crate::update::UpdateInfo>,
+}
+
+/// 自动更新 UI 状态（daemon 写，托盘菜单读）
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum UpdateStatus {
+    /// 无更新 / 检查中 / 已是最新
+    #[default]
+    Idle,
+    /// 发现新版本（值为版本号）
+    Available(String),
+    /// 用户点击更新，下载替换进行中（进程将退出）
+    Updating,
+    /// 下载/校验/替换失败，引导手动下载
+    Failed,
+}
+
+/// 配对操作反馈（成功含服务器版本，失败含服务端错误文案）
+#[derive(Clone, Debug)]
+pub struct PairStatus {
+    pub ok: bool,
+    pub message: String,
+    pub server_version: Option<String>,
 }
 
 impl SharedState {

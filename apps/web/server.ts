@@ -11,7 +11,9 @@ import { parse } from 'url'
 import os from 'node:os'
 import next from 'next'
 import { initWsServer } from './lib/ws/server'
+import { guardRequest } from './lib/auth/guard'
 import { initDb } from './lib/db'
+import { getDataKey, getDataKeySource } from './lib/data-key'
 import { initSunsetConfig } from './lib/sunset/config'
 import { getUserDateStr, getUserLocalParts, getUserSleepDateStr, getUserTimeZone, getUserWeekday, userZonedTimeToUtc } from './lib/time/user-time'
 import type { Db } from '@anchor/db'
@@ -192,6 +194,16 @@ async function main() {
   await app.prepare()
   const db = initDb()
   console.log(`[server] DB 路径: ${process.env.ANCHOR_DB_PATH ?? path.join(os.homedir(), '.anchor', 'anchor.db')}`)
+  // 数据密钥启动时同步解析一次并缓存（env → settings → 生成持久化），便于排查客户端密钥不一致
+  {
+    getDataKey()
+    const { dataKeyFingerprint } = await import('@anchor/utils')
+    const fp = await dataKeyFingerprint(getDataKey())
+    console.log('[ws] 数据密钥指纹:', fp)
+    if (getDataKeySource() === 'generated') {
+      console.log('[server] 已生成新的数据密钥并持久化')
+    }
+  }
   const userTz = getUserTimeZone()
   const { hour, minute } = getUserLocalParts(Date.now())
   console.log(`[server] 用户时区: ${userTz} | 当前用户本地时间: ${hour}:${String(minute).padStart(2, '0')}`)
@@ -216,6 +228,8 @@ async function main() {
     .catch(console.error)
 
   const server = createServer((req, res) => {
+    // 认证中间件：公开路径直接放行；未认证 API 401 / 页面 302；认证信息挂 req.anchorAuth
+    if (!guardRequest(req, res)) return
     const parsedUrl = parse(req.url!, true)
     handle(req, res, parsedUrl)
   })
@@ -255,6 +269,16 @@ async function main() {
   setInterval(() => {
     import('./lib/diary/generateCandidates')
       .then(m => m.generateDiaryCandidates(db))
+      .catch(console.error)
+  }, 60 * 60 * 1000)
+
+  // Hourly 会话清理：物理删除过期会话（N=0 时不打日志）
+  setInterval(() => {
+    import('./lib/auth/session')
+      .then(m => {
+        const n = m.cleanupExpiredSessions(db)
+        if (n > 0) console.log(`[auth] 清理过期会话 ${n} 个`)
+      })
       .catch(console.error)
   }, 60 * 60 * 1000)
 

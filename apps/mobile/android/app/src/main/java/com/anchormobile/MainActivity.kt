@@ -68,6 +68,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -85,6 +87,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.anchormobile.R
 import com.anchormobile.ui.AnchorTheme
 import com.anchormobile.ui.InterventionColor
+import kotlinx.coroutines.launch
 
 // 首页 Activity 入口
 
@@ -317,7 +320,6 @@ private fun SettingsHome(state: AnchorUiState, model: AnchorViewModel, modifier:
     var refreshKey by remember { mutableIntStateOf(0) }
     var showBreachDialog by remember { mutableStateOf(false) }
     var serverUrl by remember { mutableStateOf(AnchorRuntime.currentServerUrl(context)) }
-    var dataKey by remember { mutableStateOf(AnchorRuntime.currentDataKey(context)) }
 
     LaunchedEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -416,45 +418,10 @@ private fun SettingsHome(state: AnchorUiState, model: AnchorViewModel, modifier:
         }
 
         SettingsSectionTitle(stringResource(R.string.settings_section_server))
-        AnchorCard {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(serverUrl, style = MaterialTheme.typography.bodyMedium)
-                SecondaryButton(stringResource(R.string.common_edit), Modifier.fillMaxWidth()) {
-                    serverUrl = serverUrl
-                }
-                OutlinedTextField(
-                    value = serverUrl, onValueChange = { serverUrl = it }, label = { Text(stringResource(R.string.common_server_url)) }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SecondaryButton(stringResource(R.string.common_usb_forward), Modifier.weight(1f)) { serverUrl = "http://localhost:4000" }
-                    PrimaryButton(stringResource(R.string.common_save_reconnect), Modifier.weight(1f)) {
-                        AnchorRuntime.updateServerUrl(context, serverUrl)
-                    }
-                }
-                OutlinedTextField(
-                    value = dataKey, onValueChange = { dataKey = it }, label = { Text(stringResource(R.string.common_data_key)) }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-                PrimaryButton(stringResource(R.string.common_save_key_reconnect), Modifier.fillMaxWidth()) {
-                    AnchorRuntime.updateDataKey(context, dataKey)
-                }
-                Text(stringResource(R.string.settings_data_key_tip), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                Text(stringResource(R.string.settings_usb_tip), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-            }
-        }
+        PairingSection(context, serverUrl) { serverUrl = it }
+
+        SettingsSectionTitle(stringResource(R.string.settings_section_update))
+        UpdateSection(context)
 
         AnchorCard {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -488,6 +455,222 @@ private fun SettingsHome(state: AnchorUiState, model: AnchorViewModel, modifier:
 @Composable
 private fun SettingsSectionTitle(title: String) {
     Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+}
+
+/**
+ * 半自动更新区块：启动时自动检查（每天最多一次）+ 手动「检查更新」入口。
+ * 有新版弹对话框 → 下载到私有外部目录 → FileProvider 调起系统安装。
+ */
+@Composable
+private fun UpdateSection(context: Context) {
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var pendingInfo by remember { mutableStateOf<UpdateLogic.UpdateInfo?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+
+    // 启动检查：节流在 UpdateChecker（SharedPreferences 记 last_check_at，每天最多一次）
+    LaunchedEffect(Unit) {
+        when (val r = UpdateChecker.check(context)) {
+            is UpdateChecker.CheckResult.NewVersion -> {
+                pendingInfo = r.info
+                showDialog = true
+            }
+            else -> Unit // 已是最新/失败/被节流：静默
+        }
+    }
+
+    fun manualCheck() {
+        if (checking) return
+        checking = true
+        scope.launch {
+            when (val r = UpdateChecker.check(context, force = true)) {
+                is UpdateChecker.CheckResult.NewVersion -> {
+                    pendingInfo = r.info
+                    showDialog = true
+                }
+                UpdateChecker.CheckResult.UpToDate ->
+                    UpdateChecker.toast(context, context.getString(R.string.settings_update_latest))
+                UpdateChecker.CheckResult.Failed ->
+                    UpdateChecker.toast(context, context.getString(R.string.settings_update_fail))
+                null -> Unit // 不应出现（force 跳过节流）；防御
+            }
+            checking = false
+        }
+    }
+
+    AnchorCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_update_title), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (checking) stringResource(R.string.settings_update_checking) else stringResource(R.string.settings_update_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            SecondaryButton(
+                if (checking) stringResource(R.string.settings_update_checking) else stringResource(R.string.settings_update_title),
+                modifier = Modifier.width(88.dp),
+            ) { manualCheck() }
+        }
+    }
+
+    pendingInfo?.let { info ->
+        if (showDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text(stringResource(R.string.settings_update_new_version, info.version)) },
+                text = { Text(if (downloading) stringResource(R.string.settings_update_downloading) else stringResource(R.string.settings_update_desc)) },
+                confirmButton = {
+                    Button(
+                        enabled = !downloading,
+                        onClick = {
+                            downloading = true
+                            scope.launch {
+                                val apk = UpdateChecker.downloadApk(context, info)
+                                downloading = false
+                                if (apk != null) {
+                                    showDialog = false
+                                    UpdateChecker.installApk(context, apk)
+                                } else {
+                                    UpdateChecker.toast(context, context.getString(R.string.settings_update_download_fail))
+                                }
+                            }
+                        },
+                    ) { Text(stringResource(R.string.settings_update_download_now)) }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showDialog = false }, enabled = !downloading) {
+                        Text(stringResource(R.string.settings_update_later))
+                    }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * 配对区块：未配对显示引导表单（服务器地址 + 配对码 + 设备名）；
+ * 已配对显示绿色状态条 + 「重新配对」按钮（展开表单覆盖）。
+ */
+@Composable
+private fun PairingSection(context: Context, initialServerUrl: String, onServerUrlChange: (String) -> Unit) {
+    val prefs = context.getSharedPreferences("anchor", Context.MODE_PRIVATE)
+    var paired by remember { mutableStateOf(PairingStore.isPaired(prefs)) }
+    var repairing by remember { mutableStateOf(false) }
+    // 表单状态：rememberSaveable 防旋转/重组成丢失
+    var serverUrl by rememberSaveable { mutableStateOf(initialServerUrl) }
+    var code by rememberSaveable { mutableStateOf("") }
+    var deviceName by rememberSaveable { mutableStateOf(PairingStore.deviceName(prefs) ?: PairingStore.defaultDeviceName()) }
+    var pairing by remember { mutableStateOf(false) }
+    var feedback by remember { mutableStateOf<String?>(null) }
+    var success by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    // 生命周期重读：后台收到 4401/auth_failed 置 pair_invalid 后，回到设置页即回落到未配对表单
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) paired = PairingStore.isPaired(prefs)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        kotlinx.coroutines.awaitCancellation()
+        lifecycleOwner.lifecycle.removeObserver(observer)
+    }
+
+    if (!paired || repairing) {
+        AnchorCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.pair_welcome_title), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.pair_welcome_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                OutlinedTextField(
+                    value = serverUrl, onValueChange = { serverUrl = it }, label = { Text(stringResource(R.string.common_server_url)) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryButton(stringResource(R.string.common_usb_forward), Modifier.weight(1f)) { serverUrl = "http://localhost:4000" }
+                    if (repairing) {
+                        SecondaryButton(stringResource(R.string.pair_repair_cancel), Modifier.weight(1f)) { repairing = false }
+                    }
+                }
+                Text(stringResource(R.string.settings_usb_tip), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                OutlinedTextField(
+                    value = code, onValueChange = { code = it }, label = { Text(stringResource(R.string.pair_code_label)) },
+                    placeholder = { Text(stringResource(R.string.pair_code_hint)) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+                OutlinedTextField(
+                    value = deviceName, onValueChange = { deviceName = it }, label = { Text(stringResource(R.string.pair_device_name_label)) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+                PrimaryButton(if (pairing) stringResource(R.string.pair_pairing) else stringResource(R.string.pair_btn), Modifier.fillMaxWidth()) {
+                    if (pairing) return@PrimaryButton
+                    pairing = true
+                    feedback = null
+                    success = false
+                    scope.launch {
+                        val result = PairingClient.pair(serverUrl, code, deviceName, BuildConfig.VERSION_NAME)
+                        pairing = false
+                        when (result) {
+                            is PairResult.Success -> {
+                                // data_key 由服务器下发覆盖；落库后重启 WS 全量开始上报
+                                AnchorRuntime.applyPairResult(context, result, deviceName, serverUrl)
+                                onServerUrlChange(serverUrl.trim().trimEnd('/'))
+                                paired = true
+                                repairing = false
+                                code = ""
+                                success = true
+                                feedback = context.getString(R.string.pair_success_format, result.serverVersion)
+                            }
+                            is PairResult.Failure -> {
+                                success = false
+                                feedback = context.getString(R.string.pair_fail_format, result.error)
+                            }
+                        }
+                    }
+                }
+                feedback?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = if (success) InterventionColor.passive else MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    } else {
+        // 已配对态：绿色状态条 + 重新配对入口
+        AnchorCard {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp), tint = InterventionColor.passive)
+                Text(
+                    stringResource(R.string.pair_status_format, PairingStore.deviceName(prefs) ?: ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                SecondaryButton(stringResource(R.string.pair_repair)) {
+                    serverUrl = AnchorRuntime.currentServerUrl(context)
+                    repairing = true
+                }
+            }
+        }
+    }
 }
 
 @Composable

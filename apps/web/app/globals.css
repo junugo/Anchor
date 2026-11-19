@@ -923,3 +923,50 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 .tl-node { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; }
 .tl-candidate { font-size: 10.5px; color: var(--text-secondary); padding: 2px 0; }
 .tl-btn-mini { display: inline-block; background: var(--accent); color: #fff; font-size: 10px; border-radius: 4px; padding: 2px 8px; margin-left: 6px; text-decoration: none; }
+
+/* ── Auth（登录 / 首次设置） ─────────────────────────────── */
+.auth-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: var(--space-6);
+}
+.auth-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.auth-card .auth-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent);
+}
+.auth-card .auth-brand span { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.auth-card .auth-subtitle { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.auth-card form { display: flex; flex-direction: column; gap: var(--space-3); }
+.auth-card .auth-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.auth-card .auth-field label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.auth-card .auth-error {
+  font-size: 12px;
+  color: var(--color-curfew);
+  background: color-mix(in srgb, var(--color-curfew) 8%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-2);
+}
+.auth-card .auth-notice {
+  font-size: 12px;
+  color: var(--color-passive);
+  background: color-mix(in srgb, var(--color-passive) 10%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-2);
+}
+.auth-card .auth-actions { display: flex; justify-content: flex-end; margin-top: var(--space-1); }

@@ -29,6 +29,7 @@ object AnchorNotifications {
     const val NOTIF_SLEEP_CONFIRM    = 7002
     const val NOTIF_CONTEXT_SWITCH   = 7003
     const val NOTIF_ACCESSIBILITY_LOST = 8001
+    const val NOTIF_PAIR_INVALID       = 8002
 
     private const val WAKEUP_REQUEST = 8101
 
@@ -243,6 +244,27 @@ object AnchorNotifications {
 
     fun cancelSleepConfirm(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(NOTIF_SLEEP_CONFIRM)
+    }
+
+    /** 配对失效提醒：点击回到主界面（设置页内可重新配对） */
+    fun showPairInvalid(context: Context) {
+        init(context)
+        val open = PendingIntent.getActivity(
+            context, 8003, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        context.getSystemService(NotificationManager::class.java).notify(
+            NOTIF_PAIR_INVALID,
+            NotificationCompat.Builder(context, CHANNEL_GENERAL)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(context.getString(R.string.notif_pair_invalid_title))
+                .setContentText(context.getString(R.string.notif_pair_invalid_text))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notif_pair_invalid_text)))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build(),
+        )
     }
 
     /** 无障碍权限丢失提醒：点击直达无障碍设置页（系统停用服务后用户需重新开启） */

@@ -29,8 +29,8 @@ export type { AnchorState, AnchorAction, PendingIntentCapture, PendingIntentConf
 
 // 上行行为数据加密（AES-256-GCM）
 export {
-  DEFAULT_DATA_KEY,
   resolveDataKey,
+  generateDataKey,
   dataKeyFingerprint,
   encryptJson,
   decryptRaw,

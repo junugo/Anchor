@@ -78,6 +78,19 @@
     <string name="settings_dev_title">开发者工具</string>
     <string name="settings_dev_desc">验证通知、弹一弹、系统状态</string>
 
+    <!-- 半自动更新 -->
+    <string name="settings_section_update">应用更新</string>
+    <string name="settings_update_title">检查更新</string>
+    <string name="settings_update_desc">发现新版本时下载并调起系统安装</string>
+    <string name="settings_update_checking">检查中…</string>
+    <string name="settings_update_latest">已是最新版本</string>
+    <string name="settings_update_fail">检查失败，请稍后重试</string>
+    <string name="settings_update_new_version">发现新版本 v%1$s</string>
+    <string name="settings_update_download_now">立即下载</string>
+    <string name="settings_update_later">稍后</string>
+    <string name="settings_update_downloading">正在下载…</string>
+    <string name="settings_update_download_fail">下载失败，请稍后重试</string>
+
     <string name="settings_btn_force_breach">强制解除宵禁并记录破戒</string>
     <string name="settings_dlg_breach_title">确认解除宵禁？</string>
     <string name="settings_dlg_breach_msg">此操作会立即结束宵禁阶段，并在破戒记录中留下一次手动解除记录。</string>
@@ -226,6 +239,22 @@
 
     <string name="notif_accessibility_lost_title">无障碍服务已失效</string>
     <string name="notif_accessibility_lost_text">Anchor 的无障碍服务被系统关闭了。点击这里前往重新开启，否则宵禁拦截将无法工作。</string>
+
+    <!-- ─── 配对 pair_ ─────────────────────────────────────────── -->
+    <string name="pair_welcome_title">欢迎使用 Anchor</string>
+    <string name="pair_welcome_desc">在服务器管理界面生成配对码，填入后完成设备配对。配对后行为数据才会开始上报。</string>
+    <string name="pair_code_label">配对码</string>
+    <string name="pair_code_hint">服务器设置页生成的一次性 8 位配对码</string>
+    <string name="pair_device_name_label">设备名</string>
+    <string name="pair_btn">配对</string>
+    <string name="pair_pairing">配对中…</string>
+    <string name="pair_success_format">配对成功 · 服务器版本 %1$s</string>
+    <string name="pair_fail_format">配对失败：%1$s</string>
+    <string name="pair_status_format">已配对 · %1$s</string>
+    <string name="pair_repair">重新配对</string>
+    <string name="pair_repair_cancel">取消</string>
+    <string name="notif_pair_invalid_title">Anchor 配对已失效</string>
+    <string name="notif_pair_invalid_text">Anchor 配对已失效，请打开应用重新配对。</string>
 
     <string name="notif_intent_title">记录当前意图？</string>
     <string name="notif_intent_btn_record">记录</string>

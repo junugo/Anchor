@@ -78,34 +78,16 @@ object AnchorRuntime {
     fun currentServerUrl(context: Context): String =
         context.getSharedPreferences("anchor", Context.MODE_PRIVATE).getString("server_url", serverUrl) ?: serverUrl
 
-    /** 上行加密密钥：SharedPreferences 可覆盖，缺省内置开发密钥（仅限本地开发） */
-    private fun currentDataKey(): String =
-        lastContext?.getSharedPreferences("anchor", Context.MODE_PRIVATE)?.getString("data_key", Crypto.DEFAULT_DATA_KEY)
-            ?: Crypto.DEFAULT_DATA_KEY
+    /** 上行加密密钥：配对成功后由服务器下发覆盖；未配置返回 null，上报路径须跳过 */
+    private fun currentDataKey(): String? =
+        lastContext?.getSharedPreferences("anchor", Context.MODE_PRIVATE)?.getString("data_key", null)
 
-    /** 供设置 UI 读取当前生效的密钥 */
-    fun currentDataKey(context: Context): String =
-        context.getSharedPreferences("anchor", Context.MODE_PRIVATE).getString("data_key", Crypto.DEFAULT_DATA_KEY)
-            ?: Crypto.DEFAULT_DATA_KEY
+    fun isPaired(): Boolean = lastContext?.let { PairingStore.isPaired(it) } ?: false
 
-    /** 更新上行加密密钥并重连；传入空白则清除自定义密钥，回退内置开发密钥 */
-    fun updateDataKey(context: Context, key: String) {
+    /** 配对成功落库 + 重启 WS（清退避/失效标记） */
+    fun applyPairResult(context: Context, result: PairResult.Success, deviceName: String, serverUrl: String) {
         val prefs = context.getSharedPreferences("anchor", Context.MODE_PRIVATE)
-        val normalized = key.trim()
-        if (normalized.isBlank()) {
-            prefs.edit().remove("data_key").apply()
-        } else {
-            prefs.edit().putString("data_key", normalized).apply()
-        }
-        retryCount = 0
-        explicitStop = false
-        connect(context.applicationContext)
-    }
-
-    fun updateServerUrl(context: Context, url: String) {
-        val normalized = url.trim().trimEnd('/')
-        if (normalized.isBlank()) return
-        context.getSharedPreferences("anchor", Context.MODE_PRIVATE).edit().putString("server_url", normalized).apply()
+        PairingStore.applyPairSuccess(prefs, result, deviceName, serverUrl)
         retryCount = 0
         explicitStop = false
         connect(context.applicationContext)
@@ -114,29 +96,51 @@ object AnchorRuntime {
     fun connect(context: Context) {
         val prefs = context.getSharedPreferences("anchor", Context.MODE_PRIVATE)
         serverUrl = prefs.getString("server_url", serverUrl)?.trimEnd('/') ?: serverUrl
-        android.util.Log.i("Anchor", "connect to $serverUrl, data_key_fp=${Crypto.keyFingerprint(currentDataKey())}")
+        // 未配对不上报：本地状态机照常，WS 不上线（无有效 token 服务器会 4401 关闭）
+        if (!PairingStore.isPaired(prefs)) {
+            android.util.Log.i("Anchor", "未配对，跳过服务器连接；完成配对后自动上线")
+            // 清现场与正常 connect 开头对称：防旧重连任务/旧 socket 残留
+            retryHandler.removeCallbacks(reconnectTask)
+            webSocket?.cancel()
+            webSocket = null
+            mutableState.update { it.copy(connected = false) }
+            return
+        }
+        val token = PairingStore.token(prefs)
+        android.util.Log.i("Anchor", "connect to $serverUrl, data_key_fp=${currentDataKey()?.let { Crypto.keyFingerprint(it) }}")
         retryHandler.removeCallbacks(reconnectTask)
         webSocket?.cancel()
         webSocket = client.newWebSocket(
             Request.Builder().url(serverUrl.replaceFirst("http", "ws") + "/ws").build(),
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    retryCount = 0
-                    mutableState.update { it.copy(connected = true) }
-                    // 主动拉取当前状态
-                    fetchCurrentState()
-                    flushOfflineQueue()
+                    // 连接建立后第一条消息必须完成认证，否则服务器超时 4401 关闭
+                    token?.let { webSocket.send(gson.toJson(mapOf("type" to "auth", "token" to it))) }
                 }
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { disconnected() }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (code == 4401) { authFailed(); return }
+                    disconnected()
+                }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { disconnected() }
                 override fun onMessage(webSocket: WebSocket, text: String) { handleMessage(text) }
             }
         )
     }
 
+    /** 配对失效：置运行标志 + 系统通知 + 停重连（直到重新配对） */
+    private fun authFailed() {
+        mutableState.update { it.copy(connected = false) }
+        lastContext?.let { ctx ->
+            PairingStore.markPairInvalid(ctx.getSharedPreferences("anchor", Context.MODE_PRIVATE))
+            AnchorNotifications.showPairInvalid(ctx)
+        }
+    }
+
     private fun disconnected() {
         mutableState.update { it.copy(connected = false) }
         if (explicitStop) return
+        // 配对失效后不重连：authFailed 已置 pair_invalid，重连只会再被 4401 打回
+        if (lastContext?.let { !PairingStore.isPaired(it) } == true) return
         retryCount += 1
         // 对齐 desktop-rs：前 10 次 5s 快重试，之后进入 60s 心跳模式，永不放弃
         scheduleReconnect(if (retryCount <= 10) 5_000L else 60_000L)
@@ -148,6 +152,11 @@ object AnchorRuntime {
     }
 
     fun send(message: Map<String, Any?>) {
+        // 未配对不上报：本地采集照常，网络路径整体跳过
+        if (!isPaired()) {
+            android.util.Log.d("Anchor", "未配对，跳过上报")
+            return
+        }
         // 配置错误状态：禁止发送
         if (mutableState.value.configError != null) {
             android.util.Log.i("Anchor", "配置错误，跳过发送")
@@ -183,6 +192,7 @@ object AnchorRuntime {
     /** 重连后批量补发：分块 POST /api/ingest/batch，成功一块删一块，失败停止 */
     private fun flushOfflineQueue() {
         val ctx = lastContext ?: return
+        if (!isPaired()) return
         Thread {
             val queue = OfflineQueue.get(ctx)
             queue.dropExpired()
@@ -458,6 +468,20 @@ object AnchorRuntime {
     private fun handleMessage(text: String) {
         val message = gson.fromJson(text, JsonObject::class.java)
         when (message.get("type")?.asString) {
+            // 认证成功：清失效标记，进入在线流程（拉状态 + 补发离线队列）
+            "auth_ok" -> {
+                retryCount = 0
+                lastContext?.let {
+                    PairingStore.clearPairInvalid(it.getSharedPreferences("anchor", Context.MODE_PRIVATE))
+                }
+                mutableState.update { it.copy(connected = true) }
+                fetchCurrentState()
+                flushOfflineQueue()
+            }
+
+            // 认证失败：服务器随后会以 4401 关闭连接
+            "auth_failed" -> authFailed()
+
             "ping" -> send(mapOf("type" to "pong"))
 
             "state:update" -> {

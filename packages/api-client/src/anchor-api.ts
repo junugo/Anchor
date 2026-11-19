@@ -2,7 +2,7 @@
  * 共享 API 消费层——封装所有 Anchor 服务器路由。
  */
 import { createApiClient } from './index'
-import type { Result } from './index'
+import type { ApiClientOptions, Result } from './index'
 import type {
   BehaviorLog,
   UserLivingContext,
@@ -12,10 +12,23 @@ import type {
   TimeCapsule,
 } from '@anchor/types'
 
-export function createAnchorApiClient(baseUrl: string) {
-  const http = createApiClient(baseUrl)
+export function createAnchorApiClient(baseUrl: string, options: ApiClientOptions = {}) {
+  const http = createApiClient(baseUrl, options)
 
   return {
+    // ─── 设备配对 / 版本 ───
+    /** 设备配对：用配对码换取设备令牌与数据密钥 */
+    pair(
+      code: string,
+      deviceName: string,
+      clientVersion?: string,
+    ): Promise<Result<{ token: string; dataKey: string; serverVersion: string; deviceId: string }>> {
+      return http.post('/api/pair', { code, deviceName, clientVersion })
+    },
+    /** 获取服务器版本信息（无需认证） */
+    getVersion(): Promise<Result<{ version: string }>> {
+      return http.get('/api/version')
+    },
     // 鈹€鈹€鈹€ 鐘舵€?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
     getStatus(): Promise<Result<UserLivingContext>> {
       return http.get('/api/status')

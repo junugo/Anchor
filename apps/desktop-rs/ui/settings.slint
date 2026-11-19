@@ -9,11 +9,18 @@ export component SettingsWindow inherits Window {
     icon: @image-url("../assets/icon.png");
     no-frame: true;
     width: 400px;
-    height: 560px;
+    height: 720px;
     background: transparent;
 
     in-out property <string> server-url: "";
     in-out property <string> data-key: "";
+    in-out property <string> pair-code: "";
+    in-out property <string> device-name: "";
+    // 已配对状态展示：设备名 · 服务器地址（重新配对入口会本地临时置 false 显示输入区）
+    in-out property <bool> paired: false;
+    in property <string> paired-info: "";
+    // 配对操作反馈（成功/失败文案）
+    in property <string> pair-status: "";
     in-out property <bool> autostart: true;
     in-out property <bool> tracking-enabled: true;
     in-out property <bool> notifications-enabled: true;
@@ -24,6 +31,8 @@ export component SettingsWindow inherits Window {
     callback drag-to(length, length);
     callback close-requested();
     callback save-clicked();
+    // 点击「配对 / 重新配对」：由 Rust 侧读取 pair-code / device-name / server-url
+    callback pair-clicked();
     // 倒计时位置变更：临时弹出示意窗预览（保存/取消后关闭）
     callback position-preview-changed(int);
 
@@ -59,6 +68,119 @@ export component SettingsWindow inherits Window {
                     text: "桌面端自身设置；宵禁与服务器决策在 Web 端管理";
                     font-size: 12px;
                     color: Palette.text-secondary;
+                }
+
+                // ── 配对区 ──
+                Rectangle {
+                    background: Palette.surface;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: root.paired ? Palette.border : Palette.accent;
+
+                    VerticalLayout {
+                        padding: 12px;
+                        spacing: 8px;
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: "配对";
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: root.paired ? Palette.text-primary : Palette.accent;
+                            }
+                            Text {
+                                text: root.paired ? "已配对" : "未配对";
+                                font-size: 12px;
+                                color: root.paired ? Palette.ok : Palette.accent;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        if root.paired: Text {
+                            text: root.paired-info;
+                            font-size: 12px;
+                            color: Palette.text-secondary;
+                            wrap: word-wrap;
+                        }
+
+                        if root.paired: AnchorButton {
+                            label: "重新配对";
+                            primary: false;
+                            clicked => { root.paired = false; }
+                        }
+
+                        if !root.paired: Text {
+                            text: "输入 Web 端设置页生成的 8 位配对码";
+                            font-size: 11px;
+                            color: Palette.text-disabled;
+                        }
+
+                        if !root.paired: Text {
+                            text: "配对码";
+                            font-size: 12px;
+                            color: Palette.text-primary;
+                        }
+
+                        if !root.paired: Rectangle {
+                            height: 32px;
+                            border-radius: 6px;
+                            background: Palette.surface;
+                            border-width: 1px;
+                            border-color: code-input.has-focus ? Palette.accent : Palette.border;
+
+                            code-input := TextInput {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                font-size: 13px;
+                                color: Palette.text-primary;
+                                selection-background-color: Palette.accent-muted;
+                                selection-foreground-color: Palette.text-primary;
+                                text <=> root.pair-code;
+                            }
+                        }
+
+                        if !root.paired: Text {
+                            text: "设备名";
+                            font-size: 12px;
+                            color: Palette.text-primary;
+                        }
+
+                        if !root.paired: Rectangle {
+                            height: 32px;
+                            border-radius: 6px;
+                            background: Palette.surface;
+                            border-width: 1px;
+                            border-color: name-input.has-focus ? Palette.accent : Palette.border;
+
+                            name-input := TextInput {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                font-size: 13px;
+                                color: Palette.text-primary;
+                                selection-background-color: Palette.accent-muted;
+                                selection-foreground-color: Palette.text-primary;
+                                text <=> root.device-name;
+                            }
+                        }
+
+                        if !root.paired: AnchorButton {
+                            label: "配对";
+                            primary: true;
+                            clicked => { root.pair-clicked(); }
+                        }
+
+                        if root.pair-status != "": Text {
+                            text: root.pair-status;
+                            font-size: 12px;
+                            color: root.paired ? Palette.ok : Palette.accent;
+                            wrap: word-wrap;
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -171,9 +293,10 @@ export component SettingsWindow inherits Window {
                         }
 
                         Text {
-                            text: "追踪开关变更约 30s 内生效；服务器地址/密钥变更立即重连。密钥留空表示使用内置开发密钥（仅限本地开发）";
+                            text: "追踪开关变更约 30s 内生效；服务器地址/密钥变更立即重连。配对成功后数据密钥由服务器自动下发";
                             font-size: 11px;
                             color: Palette.text-disabled;
+                            wrap: word-wrap;
                         }
                     }
                 }
