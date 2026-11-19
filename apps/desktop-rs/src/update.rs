@@ -14,14 +14,15 @@ use std::path::{Path, PathBuf};
 const LATEST_API: &str = "https://api.github.com/repos/junugo/Anchor/releases/latest";
 const RELEASES_PAGE: &str = "https://github.com/junugo/Anchor/releases";
 const USER_AGENT: &str = "Anchor-Desktop";
-/// 发布资产命名约定（任务 14 CI 按此产出）：tag = desktop-vX.Y.Z
+/// 发布资产命名约定：单一 v* tag 流（如 v2.0.0），桌面资产 = anchor-desktop-{version}-windows-x64.exe
+/// tag 兼容旧 desktop-vX.Y.Z 命名，统一剥前缀后取版本号
 const ASSET_SUFFIX: &str = "-windows-x64.exe";
 const CHECKSUMS_ASSET: &str = "SHA256SUMS";
 
 /// 一次可用的更新信息
 #[derive(Clone, Debug)]
 pub struct UpdateInfo {
-    /// 新版本号（不含 desktop- 前缀，如 1.2.3）
+    /// 新版本号（不含 v 前缀，如 1.2.3）
     pub version: String,
     /// exe 资产下载地址
     pub exe_url: String,
@@ -57,7 +58,10 @@ fn parse_semver(s: &str) -> Option<(u64, u64, u64)> {
 /// 返回 (version, exe_asset_name, exe_url, sums_url)
 pub fn parse_latest_release(json: &serde_json::Value) -> Option<UpdateInfo> {
     let tag = json.get("tag_name")?.as_str()?.trim();
-    let version = tag.strip_prefix("desktop-v")?.to_owned();
+    let version = tag
+        .strip_prefix("desktop-v")
+        .or_else(|| tag.strip_prefix('v'))?
+        .to_owned();
     let assets = json.get("assets")?.as_array()?;
     let exe_name = format!("anchor-desktop-{version}{ASSET_SUFFIX}");
     let mut exe_url = None;
@@ -322,9 +326,9 @@ mod tests {
     #[test]
     fn parse_latest_release_finds_desktop_assets() {
         let json = serde_json::json!({
-            "tag_name": "desktop-v1.2.3",
+            "tag_name": "v1.2.3",
             "assets": [
-                { "name": "anchor-mobile-1.2.3.apk", "browser_download_url": "https://x/m.apk" },
+                { "name": "anchor-mobile-1.2.3-debug.apk", "browser_download_url": "https://x/m.apk" },
                 { "name": "SHA256SUMS", "browser_download_url": "https://x/sums" },
                 { "name": "anchor-desktop-1.2.3-windows-x64.exe", "browser_download_url": "https://x/d.exe" },
             ],
@@ -336,7 +340,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_latest_release_rejects_non_desktop_tag() {
+    fn parse_latest_release_accepts_legacy_desktop_tag() {
+        // 向后兼容旧 desktop-vX.Y.Z tag 命名
+        let json = serde_json::json!({
+            "tag_name": "desktop-v1.2.3",
+            "assets": [
+                { "name": "SHA256SUMS", "browser_download_url": "https://x/sums" },
+                { "name": "anchor-desktop-1.2.3-windows-x64.exe", "browser_download_url": "https://x/d.exe" },
+            ],
+        });
+        let info = parse_latest_release(&json).expect("应兼容 desktop-v 旧 tag");
+        assert_eq!(info.version, "1.2.3");
+    }
+
+    #[test]
+    fn parse_latest_release_rejects_non_release_tag() {
         let json = serde_json::json!({
             "tag_name": "mobile-v1.2.3",
             "assets": [{ "name": "SHA256SUMS", "browser_download_url": "https://x/sums" }],
@@ -347,7 +365,7 @@ mod tests {
     #[test]
     fn parse_latest_release_requires_both_assets() {
         let json = serde_json::json!({
-            "tag_name": "desktop-v1.2.3",
+            "tag_name": "v1.2.3",
             "assets": [{ "name": "SHA256SUMS", "browser_download_url": "https://x/sums" }],
         });
         assert!(parse_latest_release(&json).is_none());

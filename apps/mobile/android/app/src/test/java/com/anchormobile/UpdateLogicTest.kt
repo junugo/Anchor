@@ -36,32 +36,51 @@ class UpdateLogicTest {
     fun parseLatestReleaseFindsMobileApkAsset() {
         val body = """
             {
-              "tag_name": "mobile-v1.2.3",
+              "tag_name": "v1.2.3",
               "assets": [
                 { "name": "anchor-desktop-1.2.3-windows-x64.exe", "browser_download_url": "https://x/d.exe" },
+                { "name": "anchor-mobile-1.2.3-debug.apk", "browser_download_url": "https://x/m.apk" }
+              ]
+            }
+        """.trimIndent()
+        val info = UpdateLogic.parseLatestRelease(body)!!
+        assertEquals("1.2.3", info.version)
+        assertEquals("v1.2.3", info.tag)
+        assertEquals("https://x/m.apk", info.apkUrl)
+    }
+
+    @Test
+    fun parseLatestReleaseAcceptsApkWithoutDebugSuffix() {
+        val body = """
+            {
+              "tag_name": "v1.2.3",
+              "assets": [
                 { "name": "anchor-mobile-1.2.3.apk", "browser_download_url": "https://x/m.apk" }
               ]
             }
         """.trimIndent()
         val info = UpdateLogic.parseLatestRelease(body)!!
         assertEquals("1.2.3", info.version)
-        assertEquals("mobile-v1.2.3", info.tag)
         assertEquals("https://x/m.apk", info.apkUrl)
     }
 
     @Test
-    fun parseLatestReleaseRejectsNonMobileTag() {
+    fun parseLatestReleaseRejectsNonReleaseTag() {
         val body = """
             { "tag_name": "desktop-v1.2.3", "assets": [] }
         """.trimIndent()
         assertNull(UpdateLogic.parseLatestRelease(body))
+        val legacyMobile = """
+            { "tag_name": "mobile-v1.2.3", "assets": [] }
+        """.trimIndent()
+        assertNull(UpdateLogic.parseLatestRelease(legacyMobile))
     }
 
     @Test
     fun parseLatestReleaseRequiresApkAsset() {
         val body = """
             {
-              "tag_name": "mobile-v1.2.3",
+              "tag_name": "v1.2.3",
               "assets": [
                 { "name": "SHA256SUMS", "browser_download_url": "https://x/sums" }
               ]

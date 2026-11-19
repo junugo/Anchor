@@ -50,18 +50,26 @@ object UpdateLogic {
 
     /**
      * 从 release JSON 中解析移动端资产（Gson 解析，本地单测可跑）。
-     * 发布资产命名约定（任务 14 CI 按此产出）：tag = mobile-vX.Y.Z，资产 = anchor-mobile-vX.Y.Z.apk
+     * 发布资产命名约定：单一 v* tag 流（如 v2.0.0），资产 = anchor-mobile-{version}-debug.apk
+     * （兼容旧 mobile-vX.Y.Z tag 与无 -debug 后缀资产名）
      */
     fun parseLatestRelease(body: String): UpdateInfo? {
         return try {
             val root = JsonParser.parseString(body).asJsonObject
             val tag = root.get("tag_name")?.asString?.trim().orEmpty()
-            val version = if (tag.startsWith("mobile-v")) tag.removePrefix("mobile-v") else return null
-            val expectedName = "anchor-mobile-$version.apk"
+            val version = when {
+                tag.startsWith("mobile-v") -> return null // 旧移动端分 tag 流，非全量发布
+                tag.startsWith("v") -> tag.removePrefix("v")
+                else -> return null
+            }
+            val expectedNames = setOf(
+                "anchor-mobile-$version.apk",
+                "anchor-mobile-$version-debug.apk",
+            )
             val assets = root.getAsJsonArray("assets") ?: return null
             for (el in assets) {
                 val a = el.asJsonObject
-                if (a.get("name")?.asString == expectedName) {
+                if (a.get("name")?.asString in expectedNames) {
                     val url = a.get("browser_download_url")?.asString.orEmpty()
                     if (url.isNotEmpty()) return UpdateInfo(version, tag, url)
                 }
