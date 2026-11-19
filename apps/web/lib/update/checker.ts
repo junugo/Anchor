@@ -12,11 +12,14 @@ const GITHUB_LATEST_RELEASE_URL =
   'https://api.github.com/repos/junugo/Anchor/releases/latest'
 const FETCH_TIMEOUT_MS = 5000
 export const RELEASE_CACHE_TTL_MS = 12 * 60 * 60 * 1000 // 12h
+/** 检查失败（null）用短 TTL，网络恢复后 1h 内即可重试 */
+export const RELEASE_FAILURE_CACHE_TTL_MS = 60 * 60 * 1000 // 1h
 const BODY_MAX_LENGTH = 500
 
 interface ReleaseCache {
   result: ReleaseInfo | null
   checkedAt: number
+  ttlMs: number
 }
 
 let cache: ReleaseCache | null = null
@@ -28,7 +31,7 @@ export function resetReleaseCache(): void {
 
 /** 测试用：直接注入缓存（配合假时钟验证 TTL 行为） */
 export function injectReleaseCache(result: ReleaseInfo | null, checkedAt: number): void {
-  cache = { result, checkedAt }
+  cache = { result, checkedAt, ttlMs: RELEASE_CACHE_TTL_MS }
 }
 
 /**
@@ -36,7 +39,7 @@ export function injectReleaseCache(result: ReleaseInfo | null, checkedAt: number
  * now 可注入以便测试缓存过期逻辑。
  */
 export async function checkLatestRelease(now: number = Date.now()): Promise<ReleaseInfo | null> {
-  if (cache && now - cache.checkedAt < RELEASE_CACHE_TTL_MS) {
+  if (cache && now - cache.checkedAt < cache.ttlMs) {
     return cache.result
   }
 
@@ -63,7 +66,8 @@ export async function checkLatestRelease(now: number = Date.now()): Promise<Rele
     result = null // 静默：更新检查不可影响主流程
   }
 
-  cache = { result, checkedAt: now }
+  const ttlMs = result ? RELEASE_CACHE_TTL_MS : RELEASE_FAILURE_CACHE_TTL_MS
+  cache = { result, checkedAt: now, ttlMs }
   return result
 }
 

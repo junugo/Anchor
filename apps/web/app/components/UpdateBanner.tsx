@@ -20,16 +20,20 @@ const DISMISS_KEY = 'anchor-update-banner-dismissed'
  */
 export function UpdateBanner() {
   const [info, setInfo] = useState<UpdateInfo | null>(null)
-  // 会话内已关闭过的横幅不再显示（sessionStorage 跨页面持久，刷新后仍生效）
-  const [dismissed, setDismissed] = useState(() => {
-    try {
-      return sessionStorage.getItem(DISMISS_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
+    // 会话内已关闭过则不再请求 /api/update
+    let wasDismissed = false
+    try {
+      wasDismissed = sessionStorage.getItem(DISMISS_KEY) === '1'
+    } catch {
+      wasDismissed = false
+    }
+    if (wasDismissed) {
+      setDismissed(true)
+      return
+    }
     let cancelled = false
     fetch('/api/update', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))

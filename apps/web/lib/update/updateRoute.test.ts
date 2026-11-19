@@ -89,10 +89,10 @@ test('有新版：updateAvailable=true 且返回 latest/htmlUrl/publishedAt', as
 
 test('无新版：latest 有值但 updateAvailable=false', async () => {
   resetReleaseCache()
-  mockGitHubRelease('v0.0.1') // 与 SERVER_VERSION 相等
+  mockGitHubRelease(`v${SERVER_VERSION}`) // 与 SERVER_VERSION 相等（仅差 v 前缀）
   const res = await authedGet()
   const body = await res.json()
-  assert.equal(body.latest, 'v0.0.1')
+  assert.equal(body.latest, `v${SERVER_VERSION}`)
   assert.equal(body.updateAvailable, false)
 })
 

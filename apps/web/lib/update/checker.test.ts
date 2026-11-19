@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   RELEASE_CACHE_TTL_MS,
+  RELEASE_FAILURE_CACHE_TTL_MS,
   checkLatestRelease,
   injectReleaseCache,
   isNewerVersion,
@@ -80,6 +81,25 @@ test('缓存：TTL 内不重复请求，过期后重新请求', async () => {
   const again = await checkLatestRelease(NOW + RELEASE_CACHE_TTL_MS + 1)
   assert.equal(count, 2, 'TTL 过期后应重新请求')
   assert.equal(again?.tagName, 'v1.2.3')
+})
+
+test('失败结果用 1h 短 TTL：期间不重复请求，过期后重试', async () => {
+  resetReleaseCache()
+  let count = 0
+  mockFetch(async () => {
+    count++
+    throw new DOMException('down', 'AbortError')
+  })
+  assert.equal(await checkLatestRelease(NOW), null)
+  // 短 TTL 内不重复请求（换成成功响应也不应被请求）
+  globalThis.fetch = async () => {
+    count++
+    return new Response(JSON.stringify(FAKE_RELEASE), { status: 200 })
+  }
+  assert.equal(await checkLatestRelease(NOW + 1000), null)
+  assert.equal(count, 1)
+  assert.equal(await checkLatestRelease(NOW + RELEASE_FAILURE_CACHE_TTL_MS + 1) !== null, true)
+  assert.equal(count, 2)
 })
 
 test('注入缓存可直接命中（假时钟场景）', async () => {
