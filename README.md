@@ -27,6 +27,30 @@ Anchor 是**生活节律重建系统**：多端行为感知 → 服务器统一�
 - **隐私优先**：上行行为数据 AES-256-GCM 加密，密钥由你持有（`ANCHOR_DATA_KEY`）
 - **干预分级**：状态符合预期时系统沉默；偏差越大干预越强（静默记录 → 柔和提醒 → 标准娱乐摩擦 → 硬宵禁）
 
+## ⚠️ v2.0.0 升级说明
+
+**v2 起，所有 API / WebSocket 连接都需要按设备认证的 token。服务器与四个客户端必须同时升级到 v2.0.0，混用会导致旧客户端全部失联。**
+
+升级步骤：
+
+1. **备份数据库**（先 checkpoint，否则 WAL 里的最新数据会丢）：
+   ```bash
+   sqlite3 <你的 anchor.db> 'PRAGMA wal_checkpoint(TRUNCATE);'
+   cp <你的 anchor.db> anchor.db.bak
+   ```
+2. **升级服务器**：
+   ```bash
+   git fetch && git checkout v2.0.0
+   pnpm install && pnpm web:build
+   pm2 restart anchor   # 或你的托管方式
+   ```
+3. **首次设置密码**：打开 dashboard，首次进入会引导你设置管理密码。
+4. **配对客户端**：在设置页生成配对码，然后依次升级四个客户端（release 页下载 v2 安装包），每端走引导输入配对码完成配对，即可自动连接。
+
+**数据密钥的变化**：v2 起不再手动分发 `ANCHOR_DATA_KEY`。未配置时服务器启动自动生成随机密钥（启动日志 `[ws] 数据密钥指纹: <8位>`），配对成功时自动下发到客户端，无需任何手工填写。旧客户端靠手填密钥的连接方式已被认证 token 取代。
+
+**v2 新增客户端自助更新**：服务器侧 `bash scripts/update.sh`，或 dashboard 顶部横幅一键更新；桌面端托盘菜单自更新；手机端设置页检查新版本；Chrome / VS Code 端出新版本时给出提示。
+
 ## ✨ 功能一览
 
 | 模块 | 说明 |
