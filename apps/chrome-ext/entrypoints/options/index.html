@@ -132,6 +132,24 @@
         color: var(--ok);
         visibility: hidden;
       }
+      /* 更新提示横幅：页面底部，不挡配对流程 */
+      .update-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        margin-top: 12px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .update-bar a {
+        color: inherit;
+        margin-left: auto;
+        white-space: nowrap;
+      }
       [hidden] {
         display: none !important;
       }
@@ -177,5 +195,11 @@
     </div>
 
     <script type="module" src="./main.ts"></script>
+
+    <!-- 更新提示（页面底部，已配对/未配对都显示） -->
+    <div class="update-bar" id="update-bar" hidden>
+      <span id="update-text">发现新版本</span>
+      <a id="update-link" href="https://github.com/junugo/Anchor/releases/latest" target="_blank" rel="noreferrer">查看发布页</a>
+    </div>
   </body>
 </html>

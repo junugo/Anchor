@@ -420,6 +420,9 @@ private fun SettingsHome(state: AnchorUiState, model: AnchorViewModel, modifier:
         SettingsSectionTitle(stringResource(R.string.settings_section_server))
         PairingSection(context, serverUrl) { serverUrl = it }
 
+        SettingsSectionTitle(stringResource(R.string.settings_section_update))
+        UpdateSection(context)
+
         AnchorCard {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -452,6 +455,94 @@ private fun SettingsHome(state: AnchorUiState, model: AnchorViewModel, modifier:
 @Composable
 private fun SettingsSectionTitle(title: String) {
     Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+}
+
+/**
+ * 半自动更新区块：启动时自动检查（每天最多一次）+ 手动「检查更新」入口。
+ * 有新版弹对话框 → 下载到私有外部目录 → FileProvider 调起系统安装。
+ */
+@Composable
+private fun UpdateSection(context: Context) {
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var pendingInfo by remember { mutableStateOf<UpdateLogic.UpdateInfo?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+
+    // 启动检查：节流在 UpdateChecker（SharedPreferences 记 last_check_at，每天最多一次）
+    LaunchedEffect(Unit) {
+        UpdateChecker.check(context)?.let {
+            pendingInfo = it
+            showDialog = true
+        }
+    }
+
+    fun manualCheck() {
+        if (checking) return
+        checking = true
+        scope.launch {
+            val info = UpdateChecker.check(context, force = true)
+            checking = false
+            when {
+                info != null -> {
+                    pendingInfo = info
+                    showDialog = true
+                }
+                else -> UpdateChecker.toast(context, context.getString(R.string.settings_update_latest))
+            }
+        }
+    }
+
+    AnchorCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_update_title), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (checking) stringResource(R.string.settings_update_checking) else stringResource(R.string.settings_update_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            SecondaryButton(
+                if (checking) stringResource(R.string.settings_update_checking) else stringResource(R.string.settings_update_title),
+                modifier = Modifier.width(88.dp),
+            ) { manualCheck() }
+        }
+    }
+
+    pendingInfo?.let { info ->
+        if (showDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text(stringResource(R.string.settings_update_new_version, info.version)) },
+                text = { Text(if (downloading) stringResource(R.string.settings_update_downloading) else stringResource(R.string.settings_update_desc)) },
+                confirmButton = {
+                    Button(
+                        enabled = !downloading,
+                        onClick = {
+                            downloading = true
+                            scope.launch {
+                                val apk = UpdateChecker.downloadApk(context, info)
+                                downloading = false
+                                if (apk != null) {
+                                    showDialog = false
+                                    UpdateChecker.installApk(context, apk)
+                                } else {
+                                    UpdateChecker.toast(context, context.getString(R.string.settings_update_download_fail))
+                                }
+                            }
+                        },
+                    ) { Text(stringResource(R.string.settings_update_download_now)) }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showDialog = false }, enabled = !downloading) {
+                        Text(stringResource(R.string.settings_update_later))
+                    }
+                },
+            )
+        }
+    }
 }
 
 /**

@@ -106,6 +106,32 @@ pub async fn run(shared: Arc<RwLock<SharedState>>, mut gui_cmd_rx: mpsc::Receive
         spawn_tracking(&ingest_tx, &tracker, &tracking_active);
     }
 
+    // 自动更新检查：启动时一次 + 每 24h（ureq 阻塞调用，放 spawn_blocking）
+    {
+        let shared = Arc::clone(&shared);
+        tokio::spawn(async move {
+            loop {
+                let found = tokio::task::spawn_blocking(crate::update::check_update).await.ok().flatten();
+                if let Some(info) = found {
+                    let version = info.version.clone();
+                    write_shared(&shared, |s| {
+                        // 更新中/失败态不被新结果覆盖（用户路径优先）
+                        if matches!(s.update, crate::shared::UpdateStatus::Idle | crate::shared::UpdateStatus::Available(_)) {
+                            s.update = crate::shared::UpdateStatus::Available(version.clone());
+                            s.update_info = Some(info);
+                            s.pending_notifications.push(crate::shared::PendingNotification {
+                                title: format!("Anchor 发现新版本 v{version}"),
+                                body: "托盘菜单点击「点击更新」自动升级".to_owned(),
+                                silent: false,
+                            });
+                        }
+                    });
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(24 * 3600)).await;
+            }
+        });
+    }
+
     let mut connected = false;
     if let Some(q) = &queue {
         sync_queue_len(q, &shared);

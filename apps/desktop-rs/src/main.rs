@@ -34,6 +34,7 @@ mod state;
 mod tracking;
 mod tray;
 mod ui;
+mod update;
 mod wm;
 mod ws;
 
@@ -117,6 +118,33 @@ fn main() {
             });
         }
         TrayCommand::Quit => shutdown::request_quit(),
+        TrayCommand::ApplyUpdate => {
+            // 后台线程执行下载/校验/自替换；成功后进程退出，失败置 Failed 并提示
+            let shared = Arc::clone(&shared_for_tray);
+            std::thread::spawn(move || {
+                let info = shared.read().ok().and_then(|g| g.update_info.clone());
+                let Some(info) = info else {
+                    log::warn!("[update] 点击更新但无更新信息，忽略");
+                    return;
+                };
+                if let Ok(mut g) = shared.write() {
+                    g.update = shared::UpdateStatus::Updating;
+                }
+                if let Err(e) = update::perform_update(&info) {
+                    log::error!("[update] 更新失败: {e}");
+                    if let Ok(mut g) = shared.write() {
+                        g.update = shared::UpdateStatus::Failed;
+                        g.pending_notifications.push(shared::PendingNotification {
+                            title: "Anchor 更新失败".to_owned(),
+                            body: format!("{e}，已打开发布页请手动下载"),
+                            silent: false,
+                        });
+                    }
+                    update::open_releases_page();
+                }
+            });
+        }
+        TrayCommand::OpenReleases => update::open_releases_page(),
     }));
 
     log::info!("进入 Slint 事件循环");

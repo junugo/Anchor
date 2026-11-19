@@ -8,6 +8,15 @@ import { createOfflineQueue } from './offline-queue'
 import { createSecretsApi, shouldConnect, type SecretsApi } from './secrets'
 import { requestPairing } from './pair'
 import { inferTerminalCategory } from './terminal'
+import {
+  CHECK_INTERVAL_MS,
+  LAST_NOTIFIED_KEY,
+  RELEASES_PAGE,
+  alreadyNotifiedToday,
+  fetchLatestVersion,
+  isNewerVersion,
+  todayString,
+} from './update-check'
 
 let activityCount = 0
 const REPORT_INTERVAL_MS = 60_000 // 每 60 秒上报一次
@@ -187,6 +196,30 @@ async function runPairingFlow(): Promise<void> {
   await reconnectWithSecrets()
 }
 
+// ---- 更新提示（仅提示，不自动更新；失败静默） --------------------------------
+
+/** 检查一次：有新版本且今天未提示过 → showInformationMessage；节流写入 globalState */
+async function checkExtensionUpdate(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    const current = (context.extension.packageJSON as { version?: string })?.version ?? '0.0.0'
+    const latest = await fetchLatestVersion()
+    if (!latest || !isNewerVersion(latest, current)) return
+    const today = todayString()
+    if (alreadyNotifiedToday(today, context.globalState.get(LAST_NOTIFIED_KEY))) return
+    await context.globalState.update(LAST_NOTIFIED_KEY, today)
+    const clean = latest.replace(/^(desktop|mobile|chrome|vscode)-v?/i, 'v')
+    void vscode.window
+      .showInformationMessage(`Anchor 扩展发现新版本 ${clean}`, '查看发布页')
+      .then((choice) => {
+        if (choice === '查看发布页') {
+          void vscode.env.openExternal(vscode.Uri.parse(RELEASES_PAGE))
+        }
+      })
+  } catch {
+    // 失败静默
+  }
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   _extensionContext = context
   _secrets = createSecretsApi(context.secrets)
@@ -325,6 +358,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // 扩展停用时断开 WebSocket
   context.subscriptions.push({ dispose: () => disconnect() })
+
+  // 更新提示：激活时一次 + 每 6h（setInterval 在 deactivate 后失效，重启时补上）
+  void checkExtensionUpdate(context)
+  const updateTimer = setInterval(() => { void checkExtensionUpdate(context) }, CHECK_INTERVAL_MS)
+  context.subscriptions.push({ dispose: () => clearInterval(updateTimer) })
 }
 
 export function deactivate() {

@@ -1,6 +1,7 @@
 import { dataKeyFingerprint } from '@anchor/utils'
 import { defaultDeviceName, isPaired, loadServerConfig, saveServerConfig } from '../../src/config'
 import { requestPairing } from '../../src/pair'
+import { checkForUpdate } from '../../src/update-check'
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 
@@ -113,3 +114,22 @@ rePairBtn.addEventListener('click', () => {
 })
 
 render().catch(() => {})
+
+// 更新提示：启动检查（6h 节流）+ 每 6h 轮询一次；失败静默。横幅在页面底部不挡配对流程。
+async function refreshUpdateBar(): Promise<void> {
+  try {
+    const latest = await checkForUpdate(chrome.runtime.getManifest().version)
+    const bar = el('update-bar')
+    if (latest) {
+      el('update-text').textContent = `发现新版本 ${latest}`
+      bar.hidden = false
+    } else {
+      bar.hidden = true
+    }
+  } catch {
+    /* 失败静默 */
+  }
+}
+refreshUpdateBar().catch(() => {})
+setInterval(() => { refreshUpdateBar().catch(() => {}) }, 6 * 3600 * 1000)
+
