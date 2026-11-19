@@ -9,16 +9,18 @@ export component SettingsWindow inherits Window {
     icon: @image-url("../assets/icon.png");
     no-frame: true;
     width: 400px;
-    height: 720px;
+    // 720px 装不下完整内容（保存按钮被裁），提到 840 并用 ScrollView 兜底小屏
+    height: 840px;
     background: transparent;
 
     in-out property <string> server-url: "";
-    in-out property <string> data-key: "";
     in-out property <string> pair-code: "";
     in-out property <string> device-name: "";
     // 已配对状态展示：设备名 · 服务器地址（重新配对入口会本地临时置 false 显示输入区）
     in-out property <bool> paired: false;
     in property <string> paired-info: "";
+    // 已配对时只读展示数据密钥指纹前 8 位（v2 由配对自动下发，不再手动输入）
+    in property <string> key-fingerprint: "";
     // 配对操作反馈（成功/失败文案）
     in property <string> pair-status: "";
     in-out property <bool> autostart: true;
@@ -104,6 +106,13 @@ export component SettingsWindow inherits Window {
                             wrap: word-wrap;
                         }
 
+                        if root.paired && root.key-fingerprint != "": Text {
+                            text: "数据密钥指纹 " + root.key-fingerprint;
+                            font-size: 11px;
+                            color: Palette.text-disabled;
+                            wrap: word-wrap;
+                        }
+
                         if root.paired: AnchorButton {
                             label: "重新配对";
                             primary: false;
@@ -114,6 +123,33 @@ export component SettingsWindow inherits Window {
                             text: "输入 Web 端设置页生成的 8 位配对码";
                             font-size: 11px;
                             color: Palette.text-disabled;
+                        }
+
+                        // 服务器地址移入配对卡：配对与连接同源，未配对时必填
+                        if !root.paired: Text {
+                            text: "服务器地址";
+                            font-size: 12px;
+                            color: Palette.text-primary;
+                        }
+
+                        if !root.paired: Rectangle {
+                            height: 32px;
+                            border-radius: 6px;
+                            background: Palette.surface;
+                            border-width: 1px;
+                            border-color: url-input.has-focus ? Palette.accent : Palette.border;
+
+                            url-input := TextInput {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                font-size: 13px;
+                                color: Palette.text-primary;
+                                selection-background-color: Palette.accent-muted;
+                                selection-foreground-color: Palette.text-primary;
+                                text <=> root.server-url;
+                            }
                         }
 
                         if !root.paired: Text {
@@ -193,58 +229,6 @@ export component SettingsWindow inherits Window {
                         padding: 12px;
                         spacing: 10px;
 
-                        Text {
-                            text: "服务器地址";
-                            font-size: 13px;
-                            color: Palette.text-primary;
-                        }
-
-                        Rectangle {
-                            height: 32px;
-                            border-radius: 6px;
-                            background: Palette.surface;
-                            border-width: 1px;
-                            border-color: url-input.has-focus ? Palette.accent : Palette.border;
-
-                            url-input := TextInput {
-                                x: 10px;
-                                width: parent.width - 20px;
-                                height: parent.height;
-                                vertical-alignment: center;
-                                font-size: 13px;
-                                color: Palette.text-primary;
-                                selection-background-color: Palette.accent-muted;
-                                selection-foreground-color: Palette.text-primary;
-                                text <=> root.server-url;
-                            }
-                        }
-
-                        Text {
-                            text: "数据密钥";
-                            font-size: 13px;
-                            color: Palette.text-primary;
-                        }
-
-                        Rectangle {
-                            height: 32px;
-                            border-radius: 6px;
-                            background: Palette.surface;
-                            border-width: 1px;
-                            border-color: key-input.has-focus ? Palette.accent : Palette.border;
-
-                            key-input := TextInput {
-                                x: 10px;
-                                width: parent.width - 20px;
-                                height: parent.height;
-                                vertical-alignment: center;
-                                font-size: 13px;
-                                color: Palette.text-primary;
-                                selection-background-color: Palette.accent-muted;
-                                selection-foreground-color: Palette.text-primary;
-                                text <=> root.data-key;
-                            }
-                        }
-
                         AnchorCheck {
                             label: "开机自启";
                             checked <=> root.autostart;
@@ -293,7 +277,7 @@ export component SettingsWindow inherits Window {
                         }
 
                         Text {
-                            text: "追踪开关变更约 30s 内生效；服务器地址/密钥变更立即重连。配对成功后数据密钥由服务器自动下发";
+                            text: "追踪开关变更约 30s 内生效；服务器地址变更立即重连。数据密钥由配对自动下发";
                             font-size: 11px;
                             color: Palette.text-disabled;
                             wrap: word-wrap;

@@ -55,11 +55,21 @@ pub fn parse_pair_response(body: &str) -> Result<PairResponse, PairError> {
             .map(|s| s.to_owned())
             .ok_or_else(|| PairError::Http(format!("响应缺少字段 {key}")))
     };
+    // deviceId 兼容数字/字符串两种形态：服务器 2.0.0 起返回 JSON 数字（如 3），
+    // 统一转十进制字符串存储，下游存储格式不变
+    let device_id = v
+        .get("deviceId")
+        .and_then(|x| {
+            x.as_str()
+                .map(|s| s.to_owned())
+                .or_else(|| x.as_u64().map(|n| n.to_string()))
+        })
+        .ok_or_else(|| PairError::Http("响应缺少字段 deviceId".to_owned()))?;
     Ok(PairResponse {
         token: need("token")?,
         data_key: need("dataKey")?,
         server_version: need("serverVersion")?,
-        device_id: need("deviceId")?,
+        device_id,
     })
 }
 
@@ -111,6 +121,14 @@ mod tests {
         assert_eq!(r.data_key, "k-1");
         assert_eq!(r.server_version, "2.0.0");
         assert_eq!(r.device_id, "d-1");
+    }
+
+    #[test]
+    fn parse_numeric_device_id() {
+        // 服务器 2.0.0 实际返回数字 deviceId，须兼容（回归：此前误报「响应缺少字段 deviceId」）
+        let body = r#"{"token":"t-1","dataKey":"k-1","serverVersion":"2.0.0","deviceId":3}"#;
+        let r = parse_pair_response(body).unwrap();
+        assert_eq!(r.device_id, "3");
     }
 
     #[test]

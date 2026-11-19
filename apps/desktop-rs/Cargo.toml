@@ -1,6 +1,6 @@
 [package]
 name = "anchor-desktop"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 description = "Anchor 桌面端（Rust + Slint 守护进程）"
 default-run = "anchor-desktop"

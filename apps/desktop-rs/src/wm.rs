@@ -110,8 +110,7 @@ impl WindowManager {
                 let Some(s) = upgraded(&w, "settings") else { return };
                 let pos = PillPosition::from_index(s.get_pill_position());
                 pill_position.set(pos);
-                let data_key = s.get_data_key().trim().to_owned();
-                // 配对字段沿用现有配置，保存设置不覆盖 token/设备名
+                // v2 数据密钥由配对自动下发，设置窗不再手动编辑，保存时沿用现有配置
                 let prev = config::load();
                 let cfg = Config {
                     config_version: 1,
@@ -120,7 +119,7 @@ impl WindowManager {
                     tracking_enabled: s.get_tracking_enabled(),
                     notifications_enabled: s.get_notifications_enabled(),
                     pill_position: pos,
-                    data_key: if data_key.is_empty() { None } else { Some(data_key) },
+                    data_key: prev.data_key,
                     token: prev.token,
                     device_name: prev.device_name,
                     paired_at: prev.paired_at,
@@ -441,7 +440,7 @@ impl WindowManager {
         let cfg = config::load();
         self.settings.set_server_url(cfg.server_url.clone().into());
         self.settings
-            .set_data_key(cfg.data_key.clone().unwrap_or_default().into());
+            .set_key_fingerprint(key_fingerprint(cfg.data_key.as_deref()).into());
         self.settings.set_autostart(cfg.autostart);
         self.settings.set_tracking_enabled(cfg.tracking_enabled);
         self.settings.set_notifications_enabled(cfg.notifications_enabled);
@@ -536,6 +535,8 @@ impl WindowManager {
                 self.settings.set_paired_info(
                     format!("{} · {}", device_name, cfg.server_url).into(),
                 );
+                self.settings
+                    .set_key_fingerprint(key_fingerprint(cfg.data_key.as_deref()).into());
             }
         }
 
@@ -915,6 +916,16 @@ impl WindowManager {
             );
         }
     }
+}
+
+/// 数据密钥指纹：sha256(key) 的 base64 前 8 位，与服务器/packages/utils crypto.ts 口径一致；
+/// 未配对（无密钥）返回空串
+fn key_fingerprint(data_key: Option<&str>) -> String {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use sha2::Digest;
+    let Some(key) = data_key else { return String::new() };
+    let digest = sha2::Sha256::digest(key.as_bytes());
+    STANDARD.encode(digest)[..8].to_owned()
 }
 
 /// pill 尺寸与边距（与 ui/pill.slint、ui/pill-preview.slint 保持一致）
