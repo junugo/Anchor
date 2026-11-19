@@ -148,6 +148,8 @@ fn main() {
                         });
                     }
                     update::open_releases_page();
+                    // 失败须复位守卫：否则一次失败后「点击更新」被永久拦截（成功路径进程退出无需复位）
+                    UPDATING.store(false, std::sync::atomic::Ordering::SeqCst);
                 }
             });
         }
